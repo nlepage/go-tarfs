@@ -2,6 +2,7 @@ package tarfs
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path"
@@ -292,4 +293,37 @@ func TestSubThenReadFile(t *testing.T) {
 	if string(b) != content {
 		t.Errorf("%s content should be %#v, got %#v", name, content, string(b))
 	}
+}
+
+func ExampleOpen() {
+	tf, err := os.Open("test.tar")
+	if err != nil {
+		panic(err)
+	}
+	defer tf.Close()
+
+	tfs, err := New(tf)
+	if err != nil {
+		panic(err)
+	}
+
+	f, err := tfs.Open("dir1/dir11/file111")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	fi, err := f.Stat()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(fi.Name())
+	fmt.Println(fi.IsDir())
+	fmt.Println(fi.Size())
+
+	// Output:
+	// file111
+	// false
+	// 7
 }
