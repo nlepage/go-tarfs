@@ -218,6 +218,6 @@ func TestGlob(t *testing.T) {
 			t.Errorf("fs.Glob(tfs, %#v) should succeed, got %v", pattern, err)
 		}
 
-		assert.Equalf(t, expected, actual, "matches for pattern %#v should be %#v, got %#v", pattern, expected, actual)
+		assert.ElementsMatchf(t, expected, actual, "matches for pattern %#v should be %#v, got %#v", pattern, expected, actual)
 	}
 }

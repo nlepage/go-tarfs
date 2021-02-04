@@ -9,7 +9,8 @@ import (
 )
 
 type tarfs struct {
-	files map[string]*entry
+	files       map[string]*entry
+	rootEntries []fs.DirEntry
 }
 
 type entry struct {
@@ -44,9 +45,7 @@ func (e *entry) Info() (fs.FileInfo, error) {
 // New creates a new tar fs.FS from r
 func New(r io.Reader) (fs.FS, error) {
 	tr := tar.NewReader(r)
-	tfs := &tarfs{make(map[string]*entry)}
-
-	tfs.files["."] = &entry{}
+	tfs := &tarfs{make(map[string]*entry), make([]fs.DirEntry, 0, 10)}
 
 	for {
 		h, err := tr.Next()
@@ -68,8 +67,13 @@ func New(r io.Reader) (fs.FS, error) {
 
 		tfs.files[name] = e
 
-		if parent, ok := tfs.files[filepath.Dir(name)]; ok {
-			parent.entries = append(parent.entries, e)
+		dir := filepath.Dir(name)
+		if dir == "." {
+			tfs.rootEntries = append(tfs.rootEntries, e)
+		} else {
+			if parent, ok := tfs.files[filepath.Dir(name)]; ok {
+				parent.entries = append(parent.entries, e)
+			}
 		}
 	}
 
@@ -103,6 +107,10 @@ func (tfs *tarfs) Open(name string) (fs.File, error) {
 var _ fs.ReadDirFS = &tarfs{}
 
 func (tfs *tarfs) ReadDir(name string) ([]fs.DirEntry, error) {
+	if name == "." {
+		return tfs.rootEntries, nil
+	}
+
 	e, err := tfs.get(name, "readdir")
 	if err != nil {
 		return nil, err
@@ -135,4 +143,19 @@ func (tfs *tarfs) Stat(name string) (fs.FileInfo, error) {
 	}
 
 	return e.h.FileInfo(), nil
+}
+
+var _ fs.GlobFS = &tarfs{}
+
+func (tfs *tarfs) Glob(pattern string) (matches []string, _ error) {
+	for name := range tfs.files {
+		match, err := filepath.Match(pattern, name)
+		if err != nil {
+			return nil, err
+		}
+		if match {
+			matches = append(matches, name)
+		}
+	}
+	return
 }
