@@ -48,7 +48,7 @@ More information at [pkg.go.dev/github.com/nlepage/go-tarfs](https://pkg.go.dev/
 
 ## Caveats
 
-For now, mo effort is done to support symbolic links.
+For now, no effort is done to support symbolic links.
 
 ## Author
 
