@@ -224,7 +224,7 @@ func TestGlob(t *testing.T) {
 	}
 }
 
-func TestSub(t *testing.T) {
+func TestSubThenReadDir(t *testing.T) {
 	f, err := os.Open("test.tar")
 	if err != nil {
 		t.Fatal(err)
@@ -259,5 +259,37 @@ func TestSub(t *testing.T) {
 		if len(entries) != dir.entriesLen {
 			t.Errorf("len(entries) != %d for %#v, got %d", dir.entriesLen, dir.name, len(entries))
 		}
+	}
+}
+
+func TestSubThenReadFile(t *testing.T) {
+	f, err := os.Open("test.tar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	tfs, err := New(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	name := "dir2"
+
+	subfs, err := fs.Sub(tfs, name)
+	if err != nil {
+		t.Fatalf("fs.Sub(tfs, %#v) should succeed, got %v", name, err)
+	}
+
+	name = "dir21/file211"
+	content := "file211"
+
+	b, err := fs.ReadFile(subfs, name)
+	if err != nil {
+		t.Fatalf("fs.ReadFile(subfs, %#v) should succeed, got %v", name, err)
+	}
+
+	if string(b) != content {
+		t.Errorf("%s content should be %#v, got %#v", name, content, string(b))
 	}
 }

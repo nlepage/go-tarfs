@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/fs"
 	"path/filepath"
+	"strings"
 )
 
 type tarfs struct {
@@ -153,4 +154,31 @@ func (tfs *tarfs) Glob(pattern string) (matches []string, _ error) {
 		}
 	}
 	return
+}
+
+var _ fs.SubFS = &tarfs{}
+
+func (tfs *tarfs) Sub(dir string) (fs.FS, error) {
+	if dir == "." {
+		return tfs, nil
+	}
+
+	e, err := tfs.get(dir, "sub")
+	if err != nil {
+		return nil, err
+	}
+
+	if !e.IsDir() {
+		return nil, newErrNotDir("sub", dir)
+	}
+
+	subfs := &tarfs{make(map[string]*entry), e.entries}
+	prefix := dir + "/"
+	for name, file := range tfs.files {
+		if strings.HasPrefix(name, prefix) {
+			subfs.files[strings.TrimPrefix(name, prefix)] = file
+		}
+	}
+
+	return subfs, nil
 }
