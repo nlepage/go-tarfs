@@ -6,6 +6,8 @@ import (
 	"os"
 	"path"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestOpenInvalid(t *testing.T) {
@@ -181,7 +183,6 @@ func TestStat(t *testing.T) {
 		fi, err := fs.Stat(tfs, file.path)
 		if err != nil {
 			t.Errorf("fs.Stat(tfs, %#v) should succeed, got %v", file.path, err)
-
 		}
 
 		if fi.Name() != file.name {
@@ -191,5 +192,32 @@ func TestStat(t *testing.T) {
 		if fi.IsDir() != file.isDir {
 			t.Errorf("FileInfo.IsDir() should be %t, got %t", file.isDir, fi.IsDir())
 		}
+	}
+}
+
+func TestGlob(t *testing.T) {
+	f, err := os.Open("test.tar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	tfs, err := New(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for pattern, expected := range map[string][]string{
+		"*/*2*":   {"dir1/file12", "dir2/dir21"},
+		"*":       {"bar", "dir1", "dir2", "foo"},
+		"*/*/*":   {"dir1/dir11/file111", "dir2/dir21/file211", "dir2/dir21/file212"},
+		"*/*/*/*": nil,
+	} {
+		actual, err := fs.Glob(tfs, pattern)
+		if err != nil {
+			t.Errorf("fs.Glob(tfs, %#v) should succeed, got %v", pattern, err)
+		}
+
+		assert.Equalf(t, expected, actual, "matches for pattern %#v should be %#v, got %#v", pattern, expected, actual)
 	}
 }
