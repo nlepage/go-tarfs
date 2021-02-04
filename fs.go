@@ -12,6 +12,7 @@ import (
 type tarfs struct {
 	files       map[string]*entry
 	rootEntries []fs.DirEntry
+	rootEntry   *entry
 }
 
 type entry struct {
@@ -41,7 +42,7 @@ func (e *entry) Info() (fs.FileInfo, error) {
 // New creates a new tar fs.FS from r
 func New(r io.Reader) (fs.FS, error) {
 	tr := tar.NewReader(r)
-	tfs := &tarfs{make(map[string]*entry), make([]fs.DirEntry, 0, 10)}
+	tfs := &tarfs{make(map[string]*entry), make([]fs.DirEntry, 0, 10), nil}
 
 	for {
 		h, err := tr.Next()
@@ -92,6 +93,13 @@ func (tfs *tarfs) get(name, op string) (*entry, error) {
 }
 
 func (tfs *tarfs) Open(name string) (fs.File, error) {
+	if name == "." {
+		if tfs.rootEntry == nil {
+			return (*rootFile)(nil), nil
+		}
+		return newFile(*tfs.rootEntry), nil
+	}
+
 	e, err := tfs.get(name, "open")
 	if err != nil {
 		return nil, err
@@ -122,9 +130,17 @@ func (tfs *tarfs) ReadDir(name string) ([]fs.DirEntry, error) {
 var _ fs.ReadFileFS = &tarfs{}
 
 func (tfs *tarfs) ReadFile(name string) ([]byte, error) {
+	if name == "." {
+		return nil, newErrDir("readfile", name)
+	}
+
 	e, err := tfs.get(name, "readfile")
 	if err != nil {
 		return nil, err
+	}
+
+	if e.IsDir() {
+		return nil, newErrDir("readfile", name)
 	}
 
 	return e.b, nil
@@ -172,7 +188,7 @@ func (tfs *tarfs) Sub(dir string) (fs.FS, error) {
 		return nil, newErrNotDir("sub", dir)
 	}
 
-	subfs := &tarfs{make(map[string]*entry), e.entries}
+	subfs := &tarfs{make(map[string]*entry), e.entries, e}
 	prefix := dir + "/"
 	for name, file := range tfs.files {
 		if strings.HasPrefix(name, prefix) {

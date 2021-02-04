@@ -59,7 +59,7 @@ func TestOpen(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, name := range []string{"foo", "bar", "dir1", "dir1/file11"} {
+	for _, name := range []string{"foo", "bar", "dir1", "dir1/file11", "."} {
 		f, err := tfs.Open(name)
 		if err != nil {
 			t.Errorf("tarfs.Open(%#v) should succeed, got %v", name, err)
@@ -290,5 +290,36 @@ func TestSubThenReadFile(t *testing.T) {
 
 	if string(b) != content {
 		t.Errorf("%s content should be %#v, got %#v", name, content, string(b))
+	}
+}
+
+func TestReadOnDir(t *testing.T) {
+	tf, err := os.Open("test.tar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tf.Close()
+
+	tfs, err := New(tf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var dirs = []string{"dir1", "dir2/dir21", "."}
+
+	for _, name := range dirs {
+		f, err := tfs.Open(name)
+		if err != nil {
+			t.Errorf("fs.ReadFile(subfs, %#v) should succeed, got %v", name, err)
+			continue
+		}
+
+		if _, err := f.Read(make([]byte, 1)); !errors.Is(err, ErrDir) {
+			t.Errorf("file{%#v}.Read() should return ErrDir, got %v", name, err)
+		}
+
+		if _, err := fs.ReadFile(tfs, name); !errors.Is(err, ErrDir) {
+			t.Errorf("fs.ReadFile(tfs, %#v) should return ErrDir, got %v", name, err)
+		}
 	}
 }

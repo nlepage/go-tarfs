@@ -40,9 +40,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-    // defer f.Close() isn't necessary, it is a noop
+	// defer f.Close() isn't necessary, it is a noop
     
-    // use f...
+	// use f...
 }
 ```
 
