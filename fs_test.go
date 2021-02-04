@@ -66,7 +66,6 @@ func TestOpen(t *testing.T) {
 			t.Errorf("tarfs.Open(%#v) should succeed, got %v", name, err)
 			continue
 		}
-		defer f.Close()
 
 		fi, err := f.Stat()
 		if err != nil {
@@ -311,7 +310,6 @@ func ExampleOpen() {
 	if err != nil {
 		panic(err)
 	}
-	defer f.Close()
 
 	fi, err := f.Stat()
 	if err != nil {

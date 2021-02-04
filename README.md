@@ -7,7 +7,44 @@
 
 ## Usage
 
-See https://pkg.go.dev/github.com/nlepage/go-tarfs
+⚠️ go-tarfs needs go>=1.16
+
+Install:
+```sh
+go get github.com/nlepage/go-tarfs
+```
+
+Use:
+```go
+package main
+
+import (
+    tarfs "github.com/nlepage/go-tarfs"
+)
+
+func main() {
+    tf, err := os.Open("path/to/archive.tar")
+	if err != nil {
+		panic(err)
+	}
+	defer tf.Close()
+
+	tfs, err := New(tf)
+	if err != nil {
+		panic(err)
+	}
+
+	f, err := tfs.Open("path/to/some/file")
+	if err != nil {
+		panic(err)
+	}
+    // defer f.Close() isn't necessary, it is a noop
+    
+    // use f...
+}
+```
+
+More information at [pkg.go.dev/github.com/nlepage/go-tarfs](https://pkg.go.dev/github.com/nlepage/go-tarfs#section-documentation)
 
 ## Author
 
