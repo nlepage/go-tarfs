@@ -142,6 +142,8 @@ func TestReadFile(t *testing.T) {
 
 	for name, content := range map[string]string{
 		"dir1/dir11/file111": "file111",
+		"dir2/dir21/file212": "file212",
+		"foo":                "foo",
 	} {
 		b, err := fs.ReadFile(tfs, name)
 		if err != nil {
@@ -151,6 +153,43 @@ func TestReadFile(t *testing.T) {
 
 		if string(b) != content {
 			t.Errorf("%s content should be %#v, got %#v", name, content, string(b))
+		}
+	}
+}
+
+func TestStat(t *testing.T) {
+	f, err := os.Open("test.tar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	tfs, err := New(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, file := range []struct {
+		path  string
+		name  string
+		isDir bool
+	}{
+		{"dir1/dir11/file111", "file111", false},
+		{"foo", "foo", false},
+		{"dir2/dir21", "dir21", true},
+	} {
+		fi, err := fs.Stat(tfs, file.path)
+		if err != nil {
+			t.Errorf("fs.Stat(tfs, %#v) should succeed, got %v", file.path, err)
+
+		}
+
+		if fi.Name() != file.name {
+			t.Errorf("FileInfo.Name() should be %#v, got %#v", file.name, fi.Name())
+		}
+
+		if fi.IsDir() != file.isDir {
+			t.Errorf("FileInfo.IsDir() should be %t, got %t", file.isDir, fi.IsDir())
 		}
 	}
 }

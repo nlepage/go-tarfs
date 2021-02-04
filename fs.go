@@ -78,21 +78,21 @@ func New(r io.Reader) (fs.FS, error) {
 
 var _ fs.FS = &tarfs{}
 
-func (tfs *tarfs) get(name string) (*entry, error) {
+func (tfs *tarfs) get(name, op string) (*entry, error) {
 	if !fs.ValidPath(name) {
-		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrInvalid}
+		return nil, &fs.PathError{Op: op, Path: name, Err: fs.ErrInvalid}
 	}
 
 	e, ok := tfs.files[name]
 	if !ok {
-		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrNotExist}
+		return nil, &fs.PathError{Op: op, Path: name, Err: fs.ErrNotExist}
 	}
 
 	return e, nil
 }
 
 func (tfs *tarfs) Open(name string) (fs.File, error) {
-	e, err := tfs.get(name)
+	e, err := tfs.get(name, "open")
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func (tfs *tarfs) Open(name string) (fs.File, error) {
 var _ fs.ReadDirFS = &tarfs{}
 
 func (tfs *tarfs) ReadDir(name string) ([]fs.DirEntry, error) {
-	e, err := tfs.get(name)
+	e, err := tfs.get(name, "readdir")
 	if err != nil {
 		return nil, err
 	}
@@ -118,10 +118,21 @@ func (tfs *tarfs) ReadDir(name string) ([]fs.DirEntry, error) {
 var _ fs.ReadFileFS = &tarfs{}
 
 func (tfs *tarfs) ReadFile(name string) ([]byte, error) {
-	e, err := tfs.get(name)
+	e, err := tfs.get(name, "readfile")
 	if err != nil {
 		return nil, err
 	}
 
 	return e.b, nil
+}
+
+var _ fs.StatFS = &tarfs{}
+
+func (tfs *tarfs) Stat(name string) (fs.FileInfo, error) {
+	e, err := tfs.get(name, "stat")
+	if err != nil {
+		return nil, err
+	}
+
+	return e.h.FileInfo(), nil
 }
