@@ -150,7 +150,7 @@ func TestReadFile(t *testing.T) {
 		b, err := fs.ReadFile(tfs, name)
 		if err != nil {
 			t.Errorf("fs.ReadFile(tfs, %#v) should succeed, got %v", name, err)
-
+			continue
 		}
 
 		if string(b) != content {
@@ -183,6 +183,7 @@ func TestStat(t *testing.T) {
 		fi, err := fs.Stat(tfs, file.path)
 		if err != nil {
 			t.Errorf("fs.Stat(tfs, %#v) should succeed, got %v", file.path, err)
+			continue
 		}
 
 		if fi.Name() != file.name {
@@ -216,8 +217,47 @@ func TestGlob(t *testing.T) {
 		actual, err := fs.Glob(tfs, pattern)
 		if err != nil {
 			t.Errorf("fs.Glob(tfs, %#v) should succeed, got %v", pattern, err)
+			continue
 		}
 
 		assert.ElementsMatchf(t, expected, actual, "matches for pattern %#v should be %#v, got %#v", pattern, expected, actual)
+	}
+}
+
+func TestSub(t *testing.T) {
+	f, err := os.Open("test.tar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	tfs, err := New(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, dir := range []struct {
+		name       string
+		entriesLen int
+	}{
+		{".", 4},
+		{"dir1", 3},
+		{"dir2/dir21", 2},
+	} {
+		subfs, err := fs.Sub(tfs, dir.name)
+		if err != nil {
+			t.Errorf("fs.Sub(tfs, %#v) should succeed, got %v", dir.name, err)
+			continue
+		}
+
+		entries, err := fs.ReadDir(subfs, ".")
+		if err != nil {
+			t.Errorf("fs.ReadDir(subfs, %#v) should succeed, got %v", dir.name, err)
+			continue
+		}
+
+		if len(entries) != dir.entriesLen {
+			t.Errorf("len(entries) != %d for %#v, got %d", dir.entriesLen, dir.name, len(entries))
+		}
 	}
 }
