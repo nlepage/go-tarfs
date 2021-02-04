@@ -26,11 +26,6 @@ func (e *entry) Name() string {
 }
 
 func (e *entry) IsDir() bool {
-	// Root is a directory
-	if e.h == nil {
-		return true
-	}
-
 	return e.h.FileInfo().IsDir()
 }
 
