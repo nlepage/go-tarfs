@@ -19,6 +19,8 @@ Use:
 package main
 
 import (
+    "os"
+
     tarfs "github.com/nlepage/go-tarfs"
 )
 
@@ -29,7 +31,7 @@ func main() {
 	}
 	defer tf.Close()
 
-	tfs, err := New(tf)
+	tfs, err := tarfs.New(tf)
 	if err != nil {
 		panic(err)
 	}
