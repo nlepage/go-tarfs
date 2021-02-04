@@ -63,6 +63,7 @@ func TestOpen(t *testing.T) {
 			t.Errorf("tarfs.Open(%#v) should succeed, got %v", name, err)
 			continue
 		}
+		defer f.Close()
 
 		fi, err := f.Stat()
 		if err != nil {
@@ -123,6 +124,33 @@ func TestReadDirNotDir(t *testing.T) {
 	for _, name := range []string{"foo", "dir1/file12"} {
 		if _, err := fs.ReadDir(tfs, name); !errors.Is(err, ErrNotDir) {
 			t.Errorf("tarfs.ReadDir(tfs, %#v) should return ErrNotDir, got %v", name, err)
+		}
+	}
+}
+
+func TestReadFile(t *testing.T) {
+	f, err := os.Open("test.tar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	tfs, err := New(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for name, content := range map[string]string{
+		"dir1/dir11/file111": "file111",
+	} {
+		b, err := fs.ReadFile(tfs, name)
+		if err != nil {
+			t.Errorf("fs.ReadFile(tfs, %#v) should succeed, got %v", name, err)
+
+		}
+
+		if string(b) != content {
+			t.Errorf("%s content should be %#v, got %#v", name, content, string(b))
 		}
 	}
 }

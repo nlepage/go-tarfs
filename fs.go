@@ -59,12 +59,12 @@ func New(r io.Reader) (fs.FS, error) {
 
 		name := filepath.Clean(h.Name)
 
-		b := make([]byte, int(h.Size))
-		if _, err := io.Copy(bytes.NewBuffer(b), tr); err != nil {
+		buf := bytes.NewBuffer(make([]byte, 0, int(h.Size)))
+		if _, err := io.Copy(buf, tr); err != nil {
 			return nil, err
 		}
 
-		e := &entry{h, b, nil}
+		e := &entry{h, buf.Bytes(), nil}
 
 		tfs.files[name] = e
 
@@ -113,4 +113,15 @@ func (tfs *tarfs) ReadDir(name string) ([]fs.DirEntry, error) {
 	}
 
 	return e.entries, nil
+}
+
+var _ fs.ReadFileFS = &tarfs{}
+
+func (tfs *tarfs) ReadFile(name string) ([]byte, error) {
+	e, err := tfs.get(name)
+	if err != nil {
+		return nil, err
+	}
+
+	return e.b, nil
 }
