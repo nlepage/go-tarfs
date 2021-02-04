@@ -19,7 +19,7 @@ func TestOpenInvalid(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, name := range []string{"/foo", "foo/", "foo/../foo", "foo//bar"} {
+	for _, name := range []string{"/foo", "./foo", "foo/", "foo/../foo", "foo//bar"} {
 		if _, err := tfs.Open(name); !errors.Is(err, fs.ErrInvalid) {
 			t.Errorf("tarfs.Open(%#v) should return fs.ErrInvalid, got %v", name, err)
 		}
@@ -31,6 +31,7 @@ func TestOpenNotExist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer f.Close()
 
 	tfs, err := New(f)
 	if err != nil {
@@ -49,6 +50,7 @@ func TestOpen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer f.Close()
 
 	tfs, err := New(f)
 	if err != nil {
@@ -72,4 +74,37 @@ func TestOpen(t *testing.T) {
 			t.Errorf("FileInfo.Name() is %#v, expected %#v", fi.Name(), path.Base(name))
 		}
 	}
+}
+
+func TestReadDir(t *testing.T) {
+	f, err := os.Open("test.tar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	tfs, err := New(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, dir := range []struct {
+		name       string
+		entriesLen int
+	}{
+		{".", 4},
+		{"dir1", 3},
+		{"dir2/dir21", 2},
+	} {
+		entries, err := fs.ReadDir(tfs, dir.name)
+		if err != nil {
+			t.Errorf("fs.ReadDir(tfs, %#v) should succeed, got %v", dir.name, err)
+			continue
+		}
+
+		if len(entries) != dir.entriesLen {
+			t.Errorf("len(entries) != %d for %#v, got %d", dir.entriesLen, dir.name, len(entries))
+		}
+	}
+
 }

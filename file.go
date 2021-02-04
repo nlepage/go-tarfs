@@ -1,19 +1,19 @@
 package tarfs
 
 import (
-	"archive/tar"
 	"bytes"
 	"io"
 	"io/fs"
 )
 
 type file struct {
+	entry
 	io.Reader
-	h *tar.Header
+	readDirPos int
 }
 
 func newFile(e entry) *file {
-	return &file{bytes.NewReader(e.b), e.h}
+	return &file{e, bytes.NewReader(e.b), 0}
 }
 
 var _ fs.File = &file{}
@@ -24,4 +24,24 @@ func (f *file) Stat() (fs.FileInfo, error) {
 
 func (f *file) Close() error {
 	return nil
+}
+
+var _ fs.ReadDirFile = &file{}
+
+func (f *file) ReadDir(n int) ([]fs.DirEntry, error) {
+	if n <= 0 {
+		return f.entries, nil
+	}
+
+	if f.readDirPos == len(f.entries) {
+		return nil, io.EOF
+	}
+
+	start, end := f.readDirPos, f.readDirPos+n
+	if end > len(f.entries) {
+		end = len(f.entries)
+	}
+	f.readDirPos = end
+
+	return f.entries[start:end], nil
 }
