@@ -106,5 +106,23 @@ func TestReadDir(t *testing.T) {
 			t.Errorf("len(entries) != %d for %#v, got %d", dir.entriesLen, dir.name, len(entries))
 		}
 	}
+}
 
+func TestReadDirNotDir(t *testing.T) {
+	f, err := os.Open("test.tar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	tfs, err := New(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{"foo", "dir1/file12"} {
+		if _, err := fs.ReadDir(tfs, name); !errors.Is(err, ErrNotDir) {
+			t.Errorf("tarfs.ReadDir(tfs, %#v) should return ErrNotDir, got %v", name, err)
+		}
+	}
 }

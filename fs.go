@@ -25,6 +25,11 @@ func (e *entry) Name() string {
 }
 
 func (e *entry) IsDir() bool {
+	// Root is a directory
+	if e.h == nil {
+		return true
+	}
+
 	return e.h.FileInfo().IsDir()
 }
 
@@ -73,7 +78,7 @@ func New(r io.Reader) (fs.FS, error) {
 
 var _ fs.FS = &tarfs{}
 
-func (tfs *tarfs) Open(name string) (fs.File, error) {
+func (tfs *tarfs) get(name string) (*entry, error) {
 	if !fs.ValidPath(name) {
 		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrInvalid}
 	}
@@ -83,5 +88,29 @@ func (tfs *tarfs) Open(name string) (fs.File, error) {
 		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrNotExist}
 	}
 
+	return e, nil
+}
+
+func (tfs *tarfs) Open(name string) (fs.File, error) {
+	e, err := tfs.get(name)
+	if err != nil {
+		return nil, err
+	}
+
 	return newFile(*e), nil
+}
+
+var _ fs.ReadDirFS = &tarfs{}
+
+func (tfs *tarfs) ReadDir(name string) ([]fs.DirEntry, error) {
+	e, err := tfs.get(name)
+	if err != nil {
+		return nil, err
+	}
+
+	if !e.IsDir() {
+		return nil, newErrNotDir("readdir", name)
+	}
+
+	return e.entries, nil
 }

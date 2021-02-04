@@ -29,6 +29,10 @@ func (f *file) Close() error {
 var _ fs.ReadDirFile = &file{}
 
 func (f *file) ReadDir(n int) ([]fs.DirEntry, error) {
+	if !f.IsDir() {
+		return nil, newErrNotDir("readdir", f.Name())
+	}
+
 	if n <= 0 {
 		return f.entries, nil
 	}
