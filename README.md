@@ -46,6 +46,10 @@ func main() {
 
 More information at [pkg.go.dev/github.com/nlepage/go-tarfs](https://pkg.go.dev/github.com/nlepage/go-tarfs#section-documentation)
 
+## Caveats
+
+For now, mo effort is done to support symbolic links.
+
 ## Author
 
 👤 **Nicolas Lepage**
