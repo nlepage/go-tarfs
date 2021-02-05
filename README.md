@@ -1,6 +1,8 @@
 # go-tarfs
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/nlepage/go-tarfs.svg)](https://pkg.go.dev/github.com/nlepage/go-tarfs)
+![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/nlepage/go-tarfs?sort=semver)
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/nlepage/go-tarfs/Go)
 [![License Unlicense](https://img.shields.io/github/license/nlepage/go-tarfs)](https://github.com/nlepage/go-tarfs/blob/master/LICENSE)
 
 > Read a tar file contents using go1.16 io/fs abstraction
