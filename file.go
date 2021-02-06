@@ -42,14 +42,12 @@ func (f *file) ReadDir(n int) (entries []fs.DirEntry, err error) {
 		return nil, newErrNotDir("readdir", f.Name())
 	}
 
-	// directory already exhausted
-	if n <= 0 && f.readDirPos >= len(f.entries) {
-		return nil, nil
-	}
-
-	// read till end
-	if n > 0 && f.readDirPos+n > len(f.entries) {
-		err = io.EOF
+	if f.readDirPos >= len(f.entries) {
+		if n <= 0 {
+			return nil, nil
+		} else {
+			return nil, io.EOF
+		}
 	}
 
 	if n > 0 && f.readDirPos+n <= len(f.entries) {
@@ -90,14 +88,12 @@ func (rf *rootFile) ReadDir(n int) ([]fs.DirEntry, error) {
 		return nil, err
 	}
 
-	// directory already exhausted
-	if n <= 0 && rf.readDirPos >= len(entries) {
-		return nil, nil
-	}
-
-	// read till end
-	if n > 0 && rf.readDirPos+n > len(entries) {
-		err = io.EOF
+	if rf.readDirPos >= len(entries) {
+		if n <= 0 {
+			return nil, nil
+		} else {
+			return nil, io.EOF
+		}
 	}
 
 	if n > 0 && rf.readDirPos+n <= len(entries) {
