@@ -9,7 +9,7 @@ import (
 
 type file struct {
 	entry
-	r          io.Reader
+	r          io.ReadSeeker
 	readDirPos int
 }
 
@@ -33,6 +33,16 @@ func (f *file) Read(b []byte) (int, error) {
 
 func (f *file) Close() error {
 	return nil
+}
+
+var _ io.Seeker = &file{}
+
+func (f *file) Seek(offset int64, whence int) (int64, error) {
+	if f.IsDir() {
+		return 0, newErrDir("seek", f.Name())
+	}
+
+	return f.r.Seek(offset, whence)
 }
 
 var _ fs.ReadDirFile = &file{}
