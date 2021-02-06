@@ -22,9 +22,7 @@ func Example_httpFileServer() {
 		panic(err)
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		http.FileServer(http.FS(tfs)).ServeHTTP(res, req)
-	}))
+	srv := httptest.NewServer(http.FileServer(http.FS(tfs)))
 	defer srv.Close()
 
 	res, err := srv.Client().Get(srv.URL + "/dir1/dir11/file111")
