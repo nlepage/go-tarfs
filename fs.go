@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/fs"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -32,7 +33,7 @@ func (e *entry) IsDir() bool {
 }
 
 func (e *entry) Type() fs.FileMode {
-	return e.h.FileInfo().Mode()
+	return e.h.FileInfo().Mode() & fs.ModeType
 }
 
 func (e *entry) Info() (fs.FileInfo, error) {
@@ -95,7 +96,7 @@ func (tfs *tarfs) get(name, op string) (*entry, error) {
 func (tfs *tarfs) Open(name string) (fs.File, error) {
 	if name == "." {
 		if tfs.rootEntry == nil {
-			return (*rootFile)(nil), nil
+			return &rootFile{tfs: tfs}, nil
 		}
 		return newFile(*tfs.rootEntry), nil
 	}
@@ -123,6 +124,8 @@ func (tfs *tarfs) ReadDir(name string) ([]fs.DirEntry, error) {
 	if !e.IsDir() {
 		return nil, newErrNotDir("readdir", name)
 	}
+
+	sort.Slice(e.entries, func(i, j int) bool { return e.entries[i].Name() < e.entries[j].Name() })
 
 	return e.entries, nil
 }

@@ -37,29 +37,34 @@ func (f *file) Close() error {
 
 var _ fs.ReadDirFile = &file{}
 
-func (f *file) ReadDir(n int) ([]fs.DirEntry, error) {
+func (f *file) ReadDir(n int) (entries []fs.DirEntry, err error) {
 	if !f.IsDir() {
 		return nil, newErrNotDir("readdir", f.Name())
 	}
 
-	if n <= 0 {
-		return f.entries, nil
+	if f.readDirPos >= len(f.entries) {
+		if n <= 0 {
+			return nil, nil
+		} else {
+			return nil, io.EOF
+		}
 	}
 
-	if f.readDirPos == len(f.entries) {
-		return nil, io.EOF
+	if n > 0 && f.readDirPos+n <= len(f.entries) {
+		entries = f.entries[f.readDirPos : f.readDirPos+n]
+		f.readDirPos += n
+	} else {
+		entries = f.entries[f.readDirPos:]
+		f.readDirPos += len(entries)
 	}
 
-	start, end := f.readDirPos, f.readDirPos+n
-	if end > len(f.entries) {
-		end = len(f.entries)
-	}
-	f.readDirPos = end
-
-	return f.entries[start:end], nil
+	return entries, err
 }
 
-type rootFile struct{}
+type rootFile struct {
+	tfs        *tarfs
+	readDirPos int
+}
 
 var _ fs.File = &rootFile{}
 
@@ -75,6 +80,33 @@ func (*rootFile) Close() error {
 	return nil
 }
 
+var _ fs.ReadDirFile = &rootFile{}
+
+func (rf *rootFile) ReadDir(n int) ([]fs.DirEntry, error) {
+	entries, err := rf.tfs.ReadDir(".")
+	if err != nil {
+		return nil, err
+	}
+
+	if rf.readDirPos >= len(entries) {
+		if n <= 0 {
+			return nil, nil
+		} else {
+			return nil, io.EOF
+		}
+	}
+
+	if n > 0 && rf.readDirPos+n <= len(entries) {
+		entries = entries[rf.readDirPos : rf.readDirPos+n]
+		rf.readDirPos += n
+	} else {
+		entries = entries[rf.readDirPos:]
+		rf.readDirPos += len(entries)
+	}
+
+	return entries, err
+}
+
 var _ fs.FileInfo = &rootFile{}
 
 func (rf *rootFile) Name() string {
@@ -86,7 +118,7 @@ func (rf *rootFile) Size() int64 {
 }
 
 func (rf *rootFile) Mode() fs.FileMode {
-	return fs.FileMode(fs.ModeDir | 0755)
+	return fs.ModeDir | 0755
 }
 
 func (rf *rootFile) ModTime() time.Time {
