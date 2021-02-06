@@ -47,7 +47,7 @@ func (f *file) Seek(offset int64, whence int) (int64, error) {
 
 var _ fs.ReadDirFile = &file{}
 
-func (f *file) ReadDir(n int) (entries []fs.DirEntry, err error) {
+func (f *file) ReadDir(n int) ([]fs.DirEntry, error) {
 	if !f.IsDir() {
 		return nil, newErrNotDir("readdir", f.Name())
 	}
@@ -55,10 +55,11 @@ func (f *file) ReadDir(n int) (entries []fs.DirEntry, err error) {
 	if f.readDirPos >= len(f.entries) {
 		if n <= 0 {
 			return nil, nil
-		} else {
-			return nil, io.EOF
 		}
+		return nil, io.EOF
 	}
+
+	var entries []fs.DirEntry
 
 	if n > 0 && f.readDirPos+n <= len(f.entries) {
 		entries = f.entries[f.readDirPos : f.readDirPos+n]
@@ -68,7 +69,7 @@ func (f *file) ReadDir(n int) (entries []fs.DirEntry, err error) {
 		f.readDirPos += len(entries)
 	}
 
-	return entries, err
+	return entries, nil
 }
 
 type rootFile struct {
@@ -93,28 +94,24 @@ func (*rootFile) Close() error {
 var _ fs.ReadDirFile = &rootFile{}
 
 func (rf *rootFile) ReadDir(n int) ([]fs.DirEntry, error) {
-	entries, err := rf.tfs.ReadDir(".")
-	if err != nil {
-		return nil, err
-	}
-
-	if rf.readDirPos >= len(entries) {
+	if rf.readDirPos >= len(rf.tfs.rootEntries) {
 		if n <= 0 {
 			return nil, nil
-		} else {
-			return nil, io.EOF
 		}
+		return nil, io.EOF
 	}
 
-	if n > 0 && rf.readDirPos+n <= len(entries) {
-		entries = entries[rf.readDirPos : rf.readDirPos+n]
+	var entries []fs.DirEntry
+
+	if n > 0 && rf.readDirPos+n <= len(rf.tfs.rootEntries) {
+		entries = rf.tfs.rootEntries[rf.readDirPos : rf.readDirPos+n]
 		rf.readDirPos += n
 	} else {
-		entries = entries[rf.readDirPos:]
+		entries = rf.tfs.rootEntries[rf.readDirPos:]
 		rf.readDirPos += len(entries)
 	}
 
-	return entries, err
+	return entries, nil
 }
 
 var _ fs.FileInfo = &rootFile{}
