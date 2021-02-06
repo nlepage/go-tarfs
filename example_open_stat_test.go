@@ -7,7 +7,8 @@ import (
 	"github.com/nlepage/go-tarfs"
 )
 
-func ExampleOpen() {
+// ExampleOpenAndStat demonstrates how to open a file from a tar and read file info
+func Example_openAndStat() {
 	tf, err := os.Open("test.tar")
 	if err != nil {
 		panic(err)
