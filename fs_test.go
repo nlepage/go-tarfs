@@ -6,9 +6,27 @@ import (
 	"os"
 	"path"
 	"testing"
+	"testing/fstest"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func TestFS(t *testing.T) {
+	f, err := os.Open("test.tar")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tfs, err := New(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = fstest.TestFS(tfs, "foo", "dir1/dir11")
+	if err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestOpenInvalid(t *testing.T) {
 	f, err := os.Open("test.tar")
