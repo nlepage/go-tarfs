@@ -1,0 +1,25 @@
+{
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": false,
+  "contributors": [
+    {
+      "login": "cugu",
+      "name": "Jonas Plum",
+      "avatar_url": "https://avatars.githubusercontent.com/u/653777?v=4",
+      "profile": "https://blog.cugu.eu/",
+      "contributions": [
+        "test",
+        "code"
+      ]
+    }
+  ],
+  "contributorsPerLine": 7,
+  "projectName": "go-tarfs",
+  "projectOwner": "nlepage",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "skipCi": true
+}

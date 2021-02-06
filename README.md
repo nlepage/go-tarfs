@@ -4,6 +4,9 @@
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/nlepage/go-tarfs?sort=semver)
 ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/nlepage/go-tarfs/Go)
 [![License Unlicense](https://img.shields.io/github/license/nlepage/go-tarfs)](https://github.com/nlepage/go-tarfs/blob/master/LICENSE)
+<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+[![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors-)
+<!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 > Read a tar file contents using go1.16 io/fs abstraction
 
@@ -62,11 +65,25 @@ For now, no effort is done to support symbolic links.
 * Twitter: [@njblepage](https://twitter.com/njblepage)
 * Github: [@nlepage](https://github.com/nlepage)
 
-## 🤝 Contributing
+## Contributors ✨
 
-Contributions, issues and feature requests are welcome!
+Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
 
-Feel free to check [issues page](https://github.com/nlepage/go-tarfs/issues).
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tr>
+    <td align="center"><a href="https://blog.cugu.eu/"><img src="https://avatars.githubusercontent.com/u/653777?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Jonas Plum</b></sub></a><br /><a href="https://github.com/nlepage/go-tarfs/commits?author=cugu" title="Tests">⚠️</a> <a href="https://github.com/nlepage/go-tarfs/commits?author=cugu" title="Code">💻</a></td>
+  </tr>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
+This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!
 
 ## Show your support
 
