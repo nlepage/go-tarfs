@@ -4,9 +4,6 @@
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/nlepage/go-tarfs?sort=semver)
 ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/nlepage/go-tarfs/Go)
 [![License Unlicense](https://img.shields.io/github/license/nlepage/go-tarfs)](https://github.com/nlepage/go-tarfs/blob/master/LICENSE)
-<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors-)
-<!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 > Read a tar file contents using go1.16 io/fs abstraction
 
@@ -57,6 +54,10 @@ More information at [pkg.go.dev/github.com/nlepage/go-tarfs](https://pkg.go.dev/
 
 For now, no effort is done to support symbolic links.
 
+## Show your support
+
+Give a ⭐️ if this project helped you!
+
 ## Author
 
 👤 **Nicolas Lepage**
@@ -66,6 +67,10 @@ For now, no effort is done to support symbolic links.
 * Github: [@nlepage](https://github.com/nlepage)
 
 ## Contributors ✨
+
+<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+[![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors-)
+<!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
 
@@ -84,10 +89,6 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
 This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!
-
-## Show your support
-
-Give a ⭐️ if this project helped you!
 
 ## 📝 License
 
