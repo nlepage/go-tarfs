@@ -28,23 +28,23 @@ import (
 
 func main() {
     tf, err := os.Open("path/to/archive.tar")
-	if err != nil {
-		panic(err)
-	}
-	defer tf.Close()
+    if err != nil {
+        panic(err)
+    }
+    defer tf.Close()
 
-	tfs, err := tarfs.New(tf)
-	if err != nil {
-		panic(err)
-	}
+    tfs, err := tarfs.New(tf)
+    if err != nil {
+        panic(err)
+    }
 
-	f, err := tfs.Open("path/to/some/file")
-	if err != nil {
-		panic(err)
-	}
-	// defer f.Close() isn't necessary, it is a noop
+    f, err := tfs.Open("path/to/some/file")
+    if err != nil {
+        panic(err)
+    }
+    // defer f.Close() isn't necessary, it is a noop
     
-	// use f...
+    // use f...
 }
 ```
 
