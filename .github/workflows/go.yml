@@ -1,9 +1,5 @@
 name: Go
 
-strategy:
-  matrix:
-    go: ["1.16", "1.17"]
-
 on:
   push:
     branches: [ main ]
@@ -13,6 +9,9 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: ["1.16", "1.17"]
     steps:
     - uses: actions/checkout@v2
 
