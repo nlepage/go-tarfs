@@ -196,6 +196,7 @@ func TestStat(t *testing.T) {
 		{"dir1/dir11/file111", "file111", false},
 		{"foo", "foo", false},
 		{"dir2/dir21", "dir21", true},
+		{".", ".", true},
 	} {
 		fi, err := fs.Stat(tfs, file.path)
 		if err != nil {
