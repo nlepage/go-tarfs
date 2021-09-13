@@ -154,6 +154,13 @@ func (tfs *tarfs) ReadFile(name string) ([]byte, error) {
 var _ fs.StatFS = &tarfs{}
 
 func (tfs *tarfs) Stat(name string) (fs.FileInfo, error) {
+	if name == "." {
+		if tfs.rootEntry == nil {
+			return &rootFile{tfs: tfs}, nil
+		}
+		return tfs.rootEntry.Info()
+	}
+
 	e, err := tfs.get(name, "stat")
 	if err != nil {
 		return nil, err
