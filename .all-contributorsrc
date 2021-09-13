@@ -14,6 +14,16 @@
         "test",
         "code"
       ]
+    },
+    {
+      "login": "ix64",
+      "name": "MengYX",
+      "avatar_url": "https://avatars.githubusercontent.com/u/13902388?v=4",
+      "profile": "https://github.com/ix64",
+      "contributions": [
+        "bug",
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
