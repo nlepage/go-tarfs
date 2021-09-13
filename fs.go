@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"io"
 	"io/fs"
-	"path/filepath"
+	"path"
 	"sort"
 	"strings"
 )
@@ -54,7 +54,7 @@ func New(r io.Reader) (fs.FS, error) {
 			return nil, err
 		}
 
-		name := filepath.Clean(h.Name)
+		name := path.Clean(h.Name)
 
 		buf := bytes.NewBuffer(make([]byte, 0, int(h.Size)))
 		if _, err := io.Copy(buf, tr); err != nil {
@@ -65,11 +65,11 @@ func New(r io.Reader) (fs.FS, error) {
 
 		tfs.files[name] = e
 
-		dir := filepath.Dir(name)
+		dir := path.Dir(name)
 		if dir == "." {
 			tfs.rootEntries = append(tfs.rootEntries, e)
 		} else {
-			if parent, ok := tfs.files[filepath.Dir(name)]; ok {
+			if parent, ok := tfs.files[path.Dir(name)]; ok {
 				parent.entries = append(parent.entries, e)
 			}
 		}
@@ -173,7 +173,7 @@ var _ fs.GlobFS = &tarfs{}
 
 func (tfs *tarfs) Glob(pattern string) (matches []string, _ error) {
 	for name := range tfs.files {
-		match, err := filepath.Match(pattern, name)
+		match, err := path.Match(pattern, name)
 		if err != nil {
 			return nil, err
 		}
