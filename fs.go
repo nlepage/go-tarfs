@@ -146,7 +146,9 @@ func (tfs *tarfs) ReadFile(name string) ([]byte, error) {
 		return nil, newErrDir("readfile", name)
 	}
 
-	return e.b, nil
+	buf := make([]byte, len(e.b))
+	copy(buf, e.b)
+	return buf, nil
 }
 
 var _ fs.StatFS = &tarfs{}
