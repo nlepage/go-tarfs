@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io/fs"
 	"os"
-	"path"
 	"testing"
 	"testing/fstest"
 
@@ -65,7 +64,7 @@ func TestOpenNotExist(t *testing.T) {
 	}
 }
 
-func TestOpen(t *testing.T) {
+func TestOpenThenStat(t *testing.T) {
 	f, err := os.Open("test.tar")
 	if err != nil {
 		t.Fatal(err)
@@ -77,21 +76,35 @@ func TestOpen(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, name := range []string{"foo", "bar", "dir1", "dir1/file11", "."} {
-		f, err := tfs.Open(name)
+	for _, file := range []struct {
+		path  string
+		name  string
+		isDir bool
+	}{
+		{"foo", "foo", false},
+		{"bar", "bar", false},
+		{"dir1", "dir1", true},
+		{"dir1/file11", "file11", false},
+		{".", ".", true},
+	} {
+		f, err := tfs.Open(file.path)
 		if err != nil {
-			t.Errorf("tarfs.Open(%#v) should succeed, got %v", name, err)
+			t.Errorf("tarfs.Open(%#v) should succeed, got %v", file.path, err)
 			continue
 		}
 
 		fi, err := f.Stat()
 		if err != nil {
-			t.Errorf("file{%#v}.Stat() should succeed, got %v", name, err)
+			t.Errorf("file{%#v}.Stat() should succeed, got %v", file.path, err)
 			continue
 		}
 
-		if fi.Name() != path.Base(name) {
-			t.Errorf("FileInfo.Name() is %#v, expected %#v", fi.Name(), path.Base(name))
+		if fi.Name() != file.name {
+			t.Errorf("file{%#v}.Stat().Name() is %#v, expected %#v", file.path, fi.Name(), file.name)
+		}
+
+		if fi.IsDir() != file.isDir {
+			t.Errorf("file{%#v}.Stat().IsDir() is %#v, expected %#v", file.path, fi.IsDir(), file.isDir)
 		}
 	}
 }
