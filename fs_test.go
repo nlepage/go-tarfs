@@ -355,3 +355,26 @@ func TestReadOnDir(t *testing.T) {
 		}
 	}
 }
+
+func TestWalkIsNotInInfiniteLoop(t *testing.T) {
+	tf, err := os.Open("fs_test_infinite_loop.tar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tf.Close()
+
+	tfs, err := New(tf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	counter := 0
+
+	_ = fs.WalkDir(tfs, ".", func(path string, d fs.DirEntry, err error) error {
+		if counter > 1 {
+			t.FailNow()
+		}
+		counter++
+		return nil
+	})
+}
