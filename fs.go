@@ -55,6 +55,9 @@ func New(r io.Reader) (fs.FS, error) {
 		}
 
 		name := path.Clean(h.Name)
+		if name == "." {
+			continue
+		}
 
 		buf := bytes.NewBuffer(make([]byte, 0, int(h.Size)))
 		if _, err := io.Copy(buf, tr); err != nil {

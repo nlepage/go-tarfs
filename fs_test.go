@@ -355,3 +355,38 @@ func TestReadOnDir(t *testing.T) {
 		}
 	}
 }
+
+func TestWalkDir_WithDotDirInArchive(t *testing.T) {
+	tf, err := os.Open("test-with-dot-dir.tar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tf.Close()
+
+	tfs, err := New(tf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	paths := make([]string, 0, 12)
+
+	_ = fs.WalkDir(tfs, ".", func(path string, d fs.DirEntry, err error) error {
+		paths = append(paths, path)
+		return nil
+	})
+
+	assert.ElementsMatch(t, []string{
+		".",
+		"bar",
+		"foo",
+		"dir1",
+		"dir1/dir11",
+		"dir1/dir11/file111",
+		"dir1/file11",
+		"dir1/file12",
+		"dir2",
+		"dir2/dir21",
+		"dir2/dir21/file211",
+		"dir2/dir21/file212",
+	}, paths)
+}
