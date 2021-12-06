@@ -356,8 +356,8 @@ func TestReadOnDir(t *testing.T) {
 	}
 }
 
-func TestWalkIsNotInInfiniteLoop(t *testing.T) {
-	tf, err := os.Open("fs_test_infinite_loop.tar")
+func TestWalkDir_WithDotDirInArchive(t *testing.T) {
+	tf, err := os.Open("test-with-dot-dir.tar")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -368,13 +368,25 @@ func TestWalkIsNotInInfiniteLoop(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	counter := 0
+	paths := make([]string, 0, 12)
 
 	_ = fs.WalkDir(tfs, ".", func(path string, d fs.DirEntry, err error) error {
-		if counter > 1 {
-			t.FailNow()
-		}
-		counter++
+		paths = append(paths, path)
 		return nil
 	})
+
+	assert.ElementsMatch(t, []string{
+		".",
+		"bar",
+		"foo",
+		"dir1",
+		"dir1/dir11",
+		"dir1/dir11/file111",
+		"dir1/file11",
+		"dir1/file12",
+		"dir2",
+		"dir2/dir21",
+		"dir2/dir21/file211",
+		"dir2/dir21/file212",
+	}, paths)
 }
