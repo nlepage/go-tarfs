@@ -1,80 +1,69 @@
 package tarfs
 
 import (
-	"errors"
 	"io/fs"
 	"os"
 	"testing"
 	"testing/fstest"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFS(t *testing.T) {
+	require := require.New(t)
+
 	f, err := os.Open("test.tar")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 
 	tfs, err := New(f)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 
 	err = fstest.TestFS(tfs, "foo", "dir1/dir11")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 }
 
 func TestOpenInvalid(t *testing.T) {
+	require := require.New(t)
+
 	f, err := os.Open("test.tar")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 
 	tfs, err := New(f)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 
 	for _, name := range []string{"/foo", "./foo", "foo/", "foo/../foo", "foo//bar"} {
-		if _, err := tfs.Open(name); !errors.Is(err, fs.ErrInvalid) {
-			t.Errorf("tarfs.Open(%#v) should return fs.ErrInvalid, got %v", name, err)
-		}
+		_, err := tfs.Open(name)
+		assert.ErrorIsf(t, err, fs.ErrInvalid, "when tarfs.Open(%#v)", name)
 	}
 }
 
 func TestOpenNotExist(t *testing.T) {
+	require := require.New(t)
+
 	f, err := os.Open("test.tar")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 	defer f.Close()
 
 	tfs, err := New(f)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 
 	for _, name := range []string{"baz", "qwe", "foo/bar", "file11"} {
-		if _, err := tfs.Open(name); !errors.Is(err, fs.ErrNotExist) {
-			t.Errorf("tarfs.Open(%#v) should return fs.ErrNotExist, got %v", name, err)
-		}
+		_, err := tfs.Open(name)
+		assert.ErrorIsf(t, err, fs.ErrNotExist, "when tarfs.Open(%#v)", name)
 	}
 }
 
 func TestOpenThenStat(t *testing.T) {
+	require := require.New(t)
+	assert := assert.New(t)
+
 	f, err := os.Open("test.tar")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 	defer f.Close()
 
 	tfs, err := New(f)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 
 	for _, file := range []struct {
 		path  string
@@ -88,38 +77,30 @@ func TestOpenThenStat(t *testing.T) {
 		{".", ".", true},
 	} {
 		f, err := tfs.Open(file.path)
-		if err != nil {
-			t.Errorf("tarfs.Open(%#v) should succeed, got %v", file.path, err)
+		if !assert.NoErrorf(err, "when tarfs.Open(%#v)", file.path) {
 			continue
 		}
 
 		fi, err := f.Stat()
-		if err != nil {
-			t.Errorf("file{%#v}.Stat() should succeed, got %v", file.path, err)
+		if !assert.NoErrorf(err, "when file{%#v}.Stat()", file.path) {
 			continue
 		}
 
-		if fi.Name() != file.name {
-			t.Errorf("file{%#v}.Stat().Name() is %#v, expected %#v", file.path, fi.Name(), file.name)
-		}
-
-		if fi.IsDir() != file.isDir {
-			t.Errorf("file{%#v}.Stat().IsDir() is %#v, expected %#v", file.path, fi.IsDir(), file.isDir)
-		}
+		assert.Equalf(file.name, fi.Name(), "file{%#v}.Stat().Name()", file.path)
+		assert.Equalf(file.isDir, fi.IsDir(), "file{%#v}.Stat().IsDir()", file.path)
 	}
 }
 
 func TestReadDir(t *testing.T) {
+	require := require.New(t)
+	assert := assert.New(t)
+
 	f, err := os.Open("test.tar")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 	defer f.Close()
 
 	tfs, err := New(f)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 
 	for _, dir := range []struct {
 		name       string
@@ -130,47 +111,40 @@ func TestReadDir(t *testing.T) {
 		{"dir2/dir21", 2},
 	} {
 		entries, err := fs.ReadDir(tfs, dir.name)
-		if err != nil {
-			t.Errorf("fs.ReadDir(tfs, %#v) should succeed, got %v", dir.name, err)
+		if !assert.NoErrorf(err, "when fs.ReadDir(tfs, %#v)", dir.name) {
 			continue
 		}
 
-		if len(entries) != dir.entriesLen {
-			t.Errorf("len(entries) != %d for %#v, got %d", dir.entriesLen, dir.name, len(entries))
-		}
+		assert.Equalf(dir.entriesLen, len(entries), "len(entries) for %#v", dir.name)
 	}
 }
 
 func TestReadDirNotDir(t *testing.T) {
+	require := require.New(t)
+
 	f, err := os.Open("test.tar")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 	defer f.Close()
 
 	tfs, err := New(f)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 
 	for _, name := range []string{"foo", "dir1/file12"} {
-		if _, err := fs.ReadDir(tfs, name); !errors.Is(err, ErrNotDir) {
-			t.Errorf("tarfs.ReadDir(tfs, %#v) should return ErrNotDir, got %v", name, err)
-		}
+		_, err := fs.ReadDir(tfs, name)
+		assert.ErrorIsf(t, err, ErrNotDir, "when tarfs.ReadDir(tfs, %#v)", name)
 	}
 }
 
 func TestReadFile(t *testing.T) {
+	require := require.New(t)
+	assert := assert.New(t)
+
 	f, err := os.Open("test.tar")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 	defer f.Close()
 
 	tfs, err := New(f)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 
 	for name, content := range map[string]string{
 		"dir1/dir11/file111": "file111",
@@ -178,28 +152,24 @@ func TestReadFile(t *testing.T) {
 		"foo":                "foo",
 	} {
 		b, err := fs.ReadFile(tfs, name)
-		if err != nil {
-			t.Errorf("fs.ReadFile(tfs, %#v) should succeed, got %v", name, err)
+		if !assert.NoErrorf(err, "when fs.ReadFile(tfs, %#v)", name) {
 			continue
 		}
 
-		if string(b) != content {
-			t.Errorf("%s content should be %#v, got %#v", name, content, string(b))
-		}
+		assert.Equalf(content, string(b), "in %#v", name)
 	}
 }
 
 func TestStat(t *testing.T) {
+	require := require.New(t)
+	assert := assert.New(t)
+
 	f, err := os.Open("test.tar")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 	defer f.Close()
 
 	tfs, err := New(f)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 
 	for _, file := range []struct {
 		path  string
@@ -212,32 +182,26 @@ func TestStat(t *testing.T) {
 		{".", ".", true},
 	} {
 		fi, err := fs.Stat(tfs, file.path)
-		if err != nil {
-			t.Errorf("fs.Stat(tfs, %#v) should succeed, got %v", file.path, err)
+		if !assert.NoErrorf(err, "when fs.Stat(tfs, %#v)", file.path) {
 			continue
 		}
 
-		if fi.Name() != file.name {
-			t.Errorf("FileInfo.Name() should be %#v, got %#v", file.name, fi.Name())
-		}
+		assert.Equalf(file.name, fi.Name(), "FileInfo{%#v}.Name()", file.path)
 
-		if fi.IsDir() != file.isDir {
-			t.Errorf("FileInfo.IsDir() should be %t, got %t", file.isDir, fi.IsDir())
-		}
+		assert.Equalf(file.isDir, fi.IsDir(), "FileInfo{%#v}.IsDir()", file.path)
 	}
 }
 
 func TestGlob(t *testing.T) {
+	require := require.New(t)
+	assert := assert.New(t)
+
 	f, err := os.Open("test.tar")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 	defer f.Close()
 
 	tfs, err := New(f)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 
 	for pattern, expected := range map[string][]string{
 		"*/*2*":   {"dir1/file12", "dir2/dir21"},
@@ -246,26 +210,24 @@ func TestGlob(t *testing.T) {
 		"*/*/*/*": nil,
 	} {
 		actual, err := fs.Glob(tfs, pattern)
-		if err != nil {
-			t.Errorf("fs.Glob(tfs, %#v) should succeed, got %v", pattern, err)
+		if !assert.NoErrorf(err, "when fs.Glob(tfs, %#v)", pattern) {
 			continue
 		}
 
-		assert.ElementsMatchf(t, expected, actual, "matches for pattern %#v should be %#v, got %#v", pattern, expected, actual)
+		assert.ElementsMatchf(expected, actual, "matches for pattern %#v", pattern)
 	}
 }
 
 func TestSubThenReadDir(t *testing.T) {
+	require := require.New(t)
+	assert := assert.New(t)
+
 	f, err := os.Open("test.tar")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 	defer f.Close()
 
 	tfs, err := New(f)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 
 	for _, dir := range []struct {
 		name       string
@@ -276,106 +238,89 @@ func TestSubThenReadDir(t *testing.T) {
 		{"dir2/dir21", 2},
 	} {
 		subfs, err := fs.Sub(tfs, dir.name)
-		if err != nil {
-			t.Errorf("fs.Sub(tfs, %#v) should succeed, got %v", dir.name, err)
+		if !assert.NoErrorf(err, "when fs.Sub(tfs, %#v)", dir.name) {
 			continue
 		}
 
 		entries, err := fs.ReadDir(subfs, ".")
-		if err != nil {
-			t.Errorf("fs.ReadDir(subfs, %#v) should succeed, got %v", dir.name, err)
+		if !assert.NoErrorf(err, "when fs.ReadDir(subfs, %#v)", dir.name) {
 			continue
 		}
 
-		if len(entries) != dir.entriesLen {
-			t.Errorf("len(entries) != %d for %#v, got %d", dir.entriesLen, dir.name, len(entries))
-		}
+		assert.Equalf(dir.entriesLen, len(entries), "len(entries) for %#v", dir.name)
 	}
 }
 
 func TestSubThenReadFile(t *testing.T) {
+	require := require.New(t)
+
 	f, err := os.Open("test.tar")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 	defer f.Close()
 
 	tfs, err := New(f)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 
 	name := "dir2"
 
 	subfs, err := fs.Sub(tfs, name)
-	if err != nil {
-		t.Fatalf("fs.Sub(tfs, %#v) should succeed, got %v", name, err)
-	}
+	require.NoErrorf(err, "when fs.Sub(tfs, %#v)", name)
 
 	name = "dir21/file211"
 	content := "file211"
 
 	b, err := fs.ReadFile(subfs, name)
-	if err != nil {
-		t.Fatalf("fs.ReadFile(subfs, %#v) should succeed, got %v", name, err)
-	}
+	require.NoErrorf(err, "when fs.ReadFile(subfs, %#v)", name)
 
-	if string(b) != content {
-		t.Errorf("%s content should be %#v, got %#v", name, content, string(b))
-	}
+	require.Equalf(content, string(b), "in %#v", name)
 }
 
 func TestReadOnDir(t *testing.T) {
+	require := require.New(t)
+	assert := assert.New(t)
+
 	tf, err := os.Open("test.tar")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 	defer tf.Close()
 
 	tfs, err := New(tf)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 
 	var dirs = []string{"dir1", "dir2/dir21", "."}
 
 	for _, name := range dirs {
 		f, err := tfs.Open(name)
-		if err != nil {
-			t.Errorf("fs.ReadFile(subfs, %#v) should succeed, got %v", name, err)
+		if !assert.NoErrorf(err, "when fs.ReadFile(subfs, %#v)", name) {
 			continue
 		}
 
-		if _, err := f.Read(make([]byte, 1)); !errors.Is(err, ErrDir) {
-			t.Errorf("file{%#v}.Read() should return ErrDir, got %v", name, err)
-		}
+		_, err = f.Read(make([]byte, 1))
+		assert.ErrorIsf(err, ErrDir, "when file{%#v}.Read()", name)
 
-		if _, err := fs.ReadFile(tfs, name); !errors.Is(err, ErrDir) {
-			t.Errorf("fs.ReadFile(tfs, %#v) should return ErrDir, got %v", name, err)
-		}
+		_, err = fs.ReadFile(tfs, name)
+		assert.ErrorIsf(err, ErrDir, "fs.ReadFile(tfs, %#v)", name)
 	}
 }
 
 func TestWalkDir_WithDotDirInArchive(t *testing.T) {
+	require := require.New(t)
+
 	tf, err := os.Open("test-with-dot-dir.tar")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 	defer tf.Close()
 
 	tfs, err := New(tf)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 
 	paths := make([]string, 0, 12)
 
-	_ = fs.WalkDir(tfs, ".", func(path string, d fs.DirEntry, err error) error {
+	err = fs.WalkDir(tfs, ".", func(path string, d fs.DirEntry, err error) error {
 		paths = append(paths, path)
 		return nil
 	})
+	require.NoError(err)
 
-	assert.ElementsMatch(t, []string{
+	require.ElementsMatch([]string{
 		".",
 		"bar",
 		"foo",
