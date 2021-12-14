@@ -2,13 +2,14 @@ package tarfs_test
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 
 	"github.com/nlepage/go-tarfs"
 )
 
-// ExampleOpenAndStat demonstrates how to open a file from a tar and read file info
-func Example_openAndStat() {
+// Example_stat demonstrates how to read a file info from within a tar
+func Example_stat() {
 	tf, err := os.Open("test.tar")
 	if err != nil {
 		panic(err)
@@ -20,12 +21,7 @@ func Example_openAndStat() {
 		panic(err)
 	}
 
-	f, err := tfs.Open("dir1/dir11/file111")
-	if err != nil {
-		panic(err)
-	}
-
-	fi, err := f.Stat()
+	fi, err := fs.Stat(tfs, "dir1/dir11/file111")
 	if err != nil {
 		panic(err)
 	}
