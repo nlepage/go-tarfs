@@ -24,7 +24,7 @@ func TestFS(t *testing.T) {
 }
 
 func TestOpenInvalid(t *testing.T) {
-	require := require.New(t)
+	require, assert := require.New(t), assert.New(t)
 
 	f, err := os.Open("test.tar")
 	require.NoError(err)
@@ -34,12 +34,12 @@ func TestOpenInvalid(t *testing.T) {
 
 	for _, name := range []string{"/foo", "./foo", "foo/", "foo/../foo", "foo//bar"} {
 		_, err := tfs.Open(name)
-		assert.ErrorIsf(t, err, fs.ErrInvalid, "when tarfs.Open(%#v)", name)
+		assert.ErrorIsf(err, fs.ErrInvalid, "when tarfs.Open(%#v)", name)
 	}
 }
 
 func TestOpenNotExist(t *testing.T) {
-	require := require.New(t)
+	require, assert := require.New(t), assert.New(t)
 
 	f, err := os.Open("test.tar")
 	require.NoError(err)
@@ -50,13 +50,12 @@ func TestOpenNotExist(t *testing.T) {
 
 	for _, name := range []string{"baz", "qwe", "foo/bar", "file11"} {
 		_, err := tfs.Open(name)
-		assert.ErrorIsf(t, err, fs.ErrNotExist, "when tarfs.Open(%#v)", name)
+		assert.ErrorIsf(err, fs.ErrNotExist, "when tarfs.Open(%#v)", name)
 	}
 }
 
 func TestOpenThenStat(t *testing.T) {
-	require := require.New(t)
-	assert := assert.New(t)
+	require, assert := require.New(t), assert.New(t)
 
 	f, err := os.Open("test.tar")
 	require.NoError(err)
@@ -92,8 +91,7 @@ func TestOpenThenStat(t *testing.T) {
 }
 
 func TestReadDir(t *testing.T) {
-	require := require.New(t)
-	assert := assert.New(t)
+	require, assert := require.New(t), assert.New(t)
 
 	f, err := os.Open("test.tar")
 	require.NoError(err)
@@ -120,7 +118,7 @@ func TestReadDir(t *testing.T) {
 }
 
 func TestReadDirNotDir(t *testing.T) {
-	require := require.New(t)
+	require, assert := require.New(t), assert.New(t)
 
 	f, err := os.Open("test.tar")
 	require.NoError(err)
@@ -131,7 +129,7 @@ func TestReadDirNotDir(t *testing.T) {
 
 	for _, name := range []string{"foo", "dir1/file12"} {
 		_, err := fs.ReadDir(tfs, name)
-		assert.ErrorIsf(t, err, ErrNotDir, "when tarfs.ReadDir(tfs, %#v)", name)
+		assert.ErrorIsf(err, ErrNotDir, "when tarfs.ReadDir(tfs, %#v)", name)
 	}
 }
 
@@ -306,6 +304,40 @@ func TestWalkDir_WithDotDirInArchive(t *testing.T) {
 	require := require.New(t)
 
 	tf, err := os.Open("test-with-dot-dir.tar")
+	require.NoError(err)
+	defer tf.Close()
+
+	tfs, err := New(tf)
+	require.NoError(err)
+
+	paths := make([]string, 0, 12)
+
+	err = fs.WalkDir(tfs, ".", func(path string, d fs.DirEntry, err error) error {
+		paths = append(paths, path)
+		return nil
+	})
+	require.NoError(err)
+
+	require.ElementsMatch([]string{
+		".",
+		"bar",
+		"foo",
+		"dir1",
+		"dir1/dir11",
+		"dir1/dir11/file111",
+		"dir1/file11",
+		"dir1/file12",
+		"dir2",
+		"dir2/dir21",
+		"dir2/dir21/file211",
+		"dir2/dir21/file212",
+	}, paths)
+}
+
+func TestWalkDir_WithNoDirEntriesInArchive(t *testing.T) {
+	require := require.New(t)
+
+	tf, err := os.Open("test-no-directory-entries.tar")
 	require.NoError(err)
 	defer tf.Close()
 

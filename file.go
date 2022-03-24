@@ -2,25 +2,33 @@ package tarfs
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/fs"
 	"time"
 )
 
 type file struct {
-	entry
+	fs.DirEntry
 	r          io.ReadSeeker
 	readDirPos int
 }
 
-func newFile(e entry) *file {
-	return &file{e, bytes.NewReader(e.b), 0}
+func newFile(e fs.DirEntry) *file {
+	switch e := e.(type) {
+	case *entry:
+		return &file{e, bytes.NewReader(e.b), 0}
+	case *fakeDirEntry:
+		return &file{e, nil, 0}
+	default:
+		panic(fmt.Sprintf("unknown entry type: %T", e))
+	}
 }
 
 var _ fs.File = &file{}
 
 func (f *file) Stat() (fs.FileInfo, error) {
-	return f.h.FileInfo(), nil
+	return f.Info()
 }
 
 func (f *file) Read(b []byte) (int, error) {
@@ -52,20 +60,20 @@ func (f *file) ReadDir(n int) ([]fs.DirEntry, error) {
 		return nil, newErrNotDir("readdir", f.Name())
 	}
 
-	if f.readDirPos >= len(f.entries) {
+	var entries = f.DirEntry.(entries).get()
+
+	if f.readDirPos >= len(entries) {
 		if n <= 0 {
 			return nil, nil
 		}
 		return nil, io.EOF
 	}
 
-	var entries []fs.DirEntry
-
-	if n > 0 && f.readDirPos+n <= len(f.entries) {
-		entries = f.entries[f.readDirPos : f.readDirPos+n]
+	if n > 0 && f.readDirPos+n <= len(entries) {
+		entries = entries[f.readDirPos : f.readDirPos+n]
 		f.readDirPos += n
 	} else {
-		entries = f.entries[f.readDirPos:]
+		entries = entries[f.readDirPos:]
 		f.readDirPos += len(entries)
 	}
 

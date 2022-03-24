@@ -8,18 +8,28 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"time"
 )
 
 type tarfs struct {
-	files       map[string]*entry
+	entries     map[string]fs.DirEntry
 	rootEntries []fs.DirEntry
-	rootEntry   *entry
+	rootEntry   fs.DirEntry
 }
 
 type entry struct {
 	h       *tar.Header
 	b       []byte
 	entries []fs.DirEntry
+}
+
+type entries interface {
+	append(fs.DirEntry)
+	get() []fs.DirEntry
+}
+
+type fileInfo interface {
+	FileInfo() (fs.FileInfo, error)
 }
 
 var _ fs.DirEntry = &entry{}
@@ -40,10 +50,83 @@ func (e *entry) Info() (fs.FileInfo, error) {
 	return e.h.FileInfo(), nil
 }
 
+var _ entries = &entry{}
+
+func (e *entry) append(c fs.DirEntry) {
+	e.entries = append(e.entries, c)
+}
+
+func (e *entry) get() []fs.DirEntry {
+	return e.entries
+}
+
+var _ fileInfo = &entry{}
+
+func (e *entry) FileInfo() (fs.FileInfo, error) {
+	return e.h.FileInfo(), nil
+}
+
+type fakeDirEntry struct {
+	name    string
+	entries []fs.DirEntry
+}
+
+var _ fs.DirEntry = &fakeDirEntry{}
+
+func (e *fakeDirEntry) Name() string {
+	return e.name
+}
+
+func (*fakeDirEntry) IsDir() bool {
+	return true
+}
+
+func (*fakeDirEntry) Type() fs.FileMode {
+	return fs.ModeDir
+}
+
+func (e *fakeDirEntry) Info() (fs.FileInfo, error) {
+	return e, nil
+}
+
+var _ fs.FileInfo = &fakeDirEntry{}
+
+func (*fakeDirEntry) Mode() fs.FileMode {
+	return fs.ModeDir
+}
+
+func (*fakeDirEntry) Size() int64 {
+	return 0
+}
+
+func (*fakeDirEntry) ModTime() time.Time {
+	return time.Time{}
+}
+
+func (*fakeDirEntry) Sys() interface{} {
+	return nil
+}
+
+var _ entries = &fakeDirEntry{}
+
+func (e *fakeDirEntry) append(c fs.DirEntry) {
+	e.entries = append(e.entries, c)
+}
+
+func (e *fakeDirEntry) get() []fs.DirEntry {
+	return e.entries
+}
+
+var _ fileInfo = &fakeDirEntry{}
+
+func (e *fakeDirEntry) FileInfo() (fs.FileInfo, error) {
+	return e, nil
+}
+
 // New creates a new tar fs.FS from r
 func New(r io.Reader) (fs.FS, error) {
 	tr := tar.NewReader(r)
-	tfs := &tarfs{make(map[string]*entry), make([]fs.DirEntry, 0, 10), nil}
+	tfs := &tarfs{make(map[string]fs.DirEntry), make([]fs.DirEntry, 0, 10), nil}
 
 	for {
 		h, err := tr.Next()
@@ -66,29 +149,43 @@ func New(r io.Reader) (fs.FS, error) {
 
 		e := &entry{h, buf.Bytes(), nil}
 
-		tfs.files[name] = e
-
-		dir := path.Dir(name)
-		if dir == "." {
-			tfs.rootEntries = append(tfs.rootEntries, e)
-		} else {
-			if parent, ok := tfs.files[path.Dir(name)]; ok {
-				parent.entries = append(parent.entries, e)
-			}
-		}
+		tfs.append(name, e)
 	}
 
 	return tfs, nil
 }
 
+func (tfs *tarfs) append(name string, e fs.DirEntry) {
+	tfs.entries[name] = e
+
+	dir := path.Dir(name)
+
+	if dir == "." {
+		tfs.rootEntries = append(tfs.rootEntries, e)
+		return
+	}
+
+	if parent, ok := tfs.entries[dir]; ok {
+		parent := parent.(entries)
+		parent.append(e)
+		return
+	}
+
+	parent := &fakeDirEntry{path.Base(dir), nil}
+
+	tfs.append(dir, parent)
+
+	parent.append(e)
+}
+
 var _ fs.FS = &tarfs{}
 
-func (tfs *tarfs) get(name, op string) (*entry, error) {
+func (tfs *tarfs) get(name, op string) (fs.DirEntry, error) {
 	if !fs.ValidPath(name) {
 		return nil, &fs.PathError{Op: op, Path: name, Err: fs.ErrInvalid}
 	}
 
-	e, ok := tfs.files[name]
+	e, ok := tfs.entries[name]
 	if !ok {
 		return nil, &fs.PathError{Op: op, Path: name, Err: fs.ErrNotExist}
 	}
@@ -101,7 +198,7 @@ func (tfs *tarfs) Open(name string) (fs.File, error) {
 		if tfs.rootEntry == nil {
 			return &rootFile{tfs: tfs}, nil
 		}
-		return newFile(*tfs.rootEntry), nil
+		return newFile(tfs.rootEntry), nil
 	}
 
 	e, err := tfs.get(name, "open")
@@ -109,7 +206,7 @@ func (tfs *tarfs) Open(name string) (fs.File, error) {
 		return nil, err
 	}
 
-	return newFile(*e), nil
+	return newFile(e), nil
 }
 
 var _ fs.ReadDirFS = &tarfs{}
@@ -128,9 +225,11 @@ func (tfs *tarfs) ReadDir(name string) ([]fs.DirEntry, error) {
 		return nil, newErrNotDir("readdir", name)
 	}
 
-	sort.Slice(e.entries, func(i, j int) bool { return e.entries[i].Name() < e.entries[j].Name() })
+	entries := e.(entries).get()
 
-	return e.entries, nil
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
+
+	return entries, nil
 }
 
 var _ fs.ReadFileFS = &tarfs{}
@@ -149,8 +248,10 @@ func (tfs *tarfs) ReadFile(name string) ([]byte, error) {
 		return nil, newErrDir("readfile", name)
 	}
 
-	buf := make([]byte, len(e.b))
-	copy(buf, e.b)
+	ee := e.(*entry)
+
+	buf := make([]byte, len(ee.b))
+	copy(buf, ee.b)
 	return buf, nil
 }
 
@@ -169,13 +270,13 @@ func (tfs *tarfs) Stat(name string) (fs.FileInfo, error) {
 		return nil, err
 	}
 
-	return e.h.FileInfo(), nil
+	return e.(fileInfo).FileInfo()
 }
 
 var _ fs.GlobFS = &tarfs{}
 
 func (tfs *tarfs) Glob(pattern string) (matches []string, _ error) {
-	for name := range tfs.files {
+	for name := range tfs.entries {
 		match, err := path.Match(pattern, name)
 		if err != nil {
 			return nil, err
@@ -203,11 +304,11 @@ func (tfs *tarfs) Sub(dir string) (fs.FS, error) {
 		return nil, newErrNotDir("sub", dir)
 	}
 
-	subfs := &tarfs{make(map[string]*entry), e.entries, e}
+	subfs := &tarfs{make(map[string]fs.DirEntry), e.(entries).get(), e}
 	prefix := dir + "/"
-	for name, file := range tfs.files {
+	for name, file := range tfs.entries {
 		if strings.HasPrefix(name, prefix) {
-			subfs.files[strings.TrimPrefix(name, prefix)] = file
+			subfs.entries[strings.TrimPrefix(name, prefix)] = file
 		}
 	}
 
