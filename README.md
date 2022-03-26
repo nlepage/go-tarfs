@@ -4,9 +4,6 @@
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/nlepage/go-tarfs?sort=semver)
 ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/nlepage/go-tarfs/Go)
 [![License Unlicense](https://img.shields.io/github/license/nlepage/go-tarfs)](https://github.com/nlepage/go-tarfs/blob/master/LICENSE)
-<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-3-orange.svg?style=flat-square)](#contributors-)
-<!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 > Read a tar file contents using go1.16 io/fs abstraction
 
@@ -61,15 +58,11 @@ For now, no effort is done to support symbolic links.
 
 Give a ⭐️ if this project helped you!
 
-## Author
-
-👤 **Nicolas Lepage**
-
-* Website: https://nicolas.lepage.dev/
-* Twitter: [@njblepage](https://twitter.com/njblepage)
-* Github: [@nlepage](https://github.com/nlepage)
-
 ## Contributors ✨
+
+<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+[![All Contributors](https://img.shields.io/badge/all_contributors-4-orange.svg?style=flat-square)](#contributors-)
+<!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
 
@@ -78,6 +71,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 <!-- markdownlint-disable -->
 <table>
   <tr>
+    <td align="center"><a href="https://github.com/nlepage"><img src="https://avatars.githubusercontent.com/u/19571875?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Nicolas Lepage</b></sub></a><br /><a href="https://github.com/nlepage/go-tarfs/commits?author=nlepage" title="Code">💻</a></td>
     <td align="center"><a href="https://blog.cugu.eu/"><img src="https://avatars.githubusercontent.com/u/653777?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Jonas Plum</b></sub></a><br /><a href="https://github.com/nlepage/go-tarfs/commits?author=cugu" title="Tests">⚠️</a> <a href="https://github.com/nlepage/go-tarfs/commits?author=cugu" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/ix64"><img src="https://avatars.githubusercontent.com/u/13902388?v=4?s=100" width="100px;" alt=""/><br /><sub><b>MengYX</b></sub></a><br /><a href="https://github.com/nlepage/go-tarfs/issues?q=author%3Aix64" title="Bug reports">🐛</a> <a href="https://github.com/nlepage/go-tarfs/commits?author=ix64" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/adyatlov"><img src="https://avatars.githubusercontent.com/u/1386270?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Andrey Dyatlov</b></sub></a><br /><a href="https://github.com/nlepage/go-tarfs/issues?q=author%3Aadyatlov" title="Bug reports">🐛</a> <a href="https://github.com/nlepage/go-tarfs/commits?author=adyatlov" title="Code">💻</a> <a href="https://github.com/nlepage/go-tarfs/commits?author=adyatlov" title="Tests">⚠️</a></td>
