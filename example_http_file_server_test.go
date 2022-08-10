@@ -17,7 +17,7 @@ func Example_httpFileServer() {
 	}
 	defer tf.Close()
 
-	tfs, err := tarfs.New(tf)
+	tfs, err := tarfs.NewFS(tf)
 	if err != nil {
 		panic(err)
 	}
