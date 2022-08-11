@@ -1316,7 +1316,7 @@ func TestReadGNUSparsePAXHeaders(t *testing.T) {
 		var hdr Header
 		hdr.PAXRecords = v.inputHdrs
 		r := strings.NewReader(v.inputData + "#") // Add canary byte
-		tr := Reader{curr: &regFileReader{r, int64(r.Len())}}
+		tr := Reader{curr: &regFileReader{r, int64(r.Len()), -1}}
 		got, err := tr.readGNUSparsePAXHeaders(&hdr)
 		if !equalSparseEntries(got, v.wantMap) {
 			t.Errorf("test %d, readGNUSparsePAXHeaders(): got %v, want %v", i, got, v.wantMap)
@@ -1563,14 +1563,14 @@ func TestFileReader(t *testing.T) {
 		switch maker := v.maker.(type) {
 		case makeReg:
 			r := testNonEmptyReader{strings.NewReader(maker.str)}
-			fr = &regFileReader{r, maker.size}
+			fr = &regFileReader{r, maker.size, -1}
 		case makeSparse:
 			if !validateSparseEntries(maker.spd, maker.size) {
 				t.Fatalf("invalid sparse map: %v", maker.spd)
 			}
 			sph := invertSparseEntries(maker.spd, maker.size)
 			r := testNonEmptyReader{strings.NewReader(maker.makeReg.str)}
-			fr = &regFileReader{r, maker.makeReg.size}
+			fr = &regFileReader{r, maker.makeReg.size, -1}
 			fr = &sparseFileReader{fr, sph, 0}
 		default:
 			t.Fatalf("test %d, unknown make operation: %T", i, maker)

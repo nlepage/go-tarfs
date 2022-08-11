@@ -36,7 +36,7 @@ type fileReader interface {
 
 // NewReader creates a new Reader reading from r.
 func NewReader(r io.Reader) *Reader {
-	return &Reader{r: r, curr: &regFileReader{r, 0}}
+	return &Reader{r: r, curr: &regFileReader{r, 0, 0}}
 }
 
 // Next advances to the next entry in the tar archive.
@@ -172,7 +172,18 @@ func (tr *Reader) handleRegularFile(hdr *Header) error {
 	}
 
 	tr.pad = blockPadding(nb)
-	tr.curr = &regFileReader{r: tr.r, nb: nb}
+
+	// HACK: add offset to regFileReader
+	off := int64(-1)
+	if seeker, ok := tr.r.(SectionReader); ok {
+		var err error
+		off, err = seeker.Seek(0, io.SeekCurrent)
+		if err != nil {
+			off = -1
+		}
+	}
+
+	tr.curr = &regFileReader{r: tr.r, off: off, nb: nb}
 	return nil
 }
 
@@ -652,8 +663,9 @@ func (tr *Reader) writeTo(w io.Writer) (int64, error) {
 
 // regFileReader is a fileReader for reading data from a regular file entry.
 type regFileReader struct {
-	r  io.Reader // Underlying Reader
-	nb int64     // Number of remaining bytes to read
+	r   io.Reader // Underlying Reader
+	nb  int64     // Number of remaining bytes to read
+	off int64     // HACK: first byte offset of the underlying Reader
 }
 
 func (fr *regFileReader) Read(b []byte) (n int, err error) {
