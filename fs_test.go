@@ -15,11 +15,12 @@ func TestFS(t *testing.T) {
 
 	f, err := os.Open("test.tar")
 	require.NoError(err)
+	defer f.Close()
 
 	tfs, err := New(f)
 	require.NoError(err)
 
-	err = fstest.TestFS(tfs, "foo", "dir1/dir11")
+	err = fstest.TestFS(tfs, "bar", "foo", "dir1", "dir1/dir11", "dir1/dir11/file111", "dir1/file11", "dir1/file12", "dir2", "dir2/dir21", "dir2/dir21/file211", "dir2/dir21/file212")
 	require.NoError(err)
 }
 
@@ -28,6 +29,7 @@ func TestOpenInvalid(t *testing.T) {
 
 	f, err := os.Open("test.tar")
 	require.NoError(err)
+	defer f.Close()
 
 	tfs, err := New(f)
 	require.NoError(err)
