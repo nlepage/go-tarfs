@@ -1,6 +1,7 @@
 package tarfs
 
 import (
+	"io"
 	"io/fs"
 	"os"
 	"testing"
@@ -89,6 +90,38 @@ func TestOpenThenStat(t *testing.T) {
 
 		assert.Equalf(file.name, fi.Name(), "file{%#v}.Stat().Name()", file.path)
 		assert.Equalf(file.isDir, fi.IsDir(), "file{%#v}.Stat().IsDir()", file.path)
+	}
+}
+
+func TestOpenThenReadAll(t *testing.T) {
+	require, assert := require.New(t), assert.New(t)
+
+	f, err := os.Open("test.tar")
+	require.NoError(err)
+	defer f.Close()
+
+	tfs, err := New(f)
+	require.NoError(err)
+
+	for _, file := range []struct {
+		path    string
+		content []byte
+	}{
+		{"foo", []byte("foo")},
+		{"bar", []byte("bar")},
+		{"dir1/file11", []byte("file11")},
+	} {
+		f, err := tfs.Open(file.path)
+		if !assert.NoErrorf(err, "when tarfs.Open(%#v)", file.path) {
+			continue
+		}
+
+		content, err := io.ReadAll(f)
+		if !assert.NoErrorf(err, "when io.ReadAll(file{%#v})", file.path) {
+			continue
+		}
+
+		assert.Equalf(file.content, content, "content of %#v", file.path)
 	}
 }
 
@@ -202,7 +235,7 @@ func TestGlob(t *testing.T) {
 
 	for pattern, expected := range map[string][]string{
 		"*/*2*":   {"dir1/file12", "dir2/dir21"},
-		"*":       {"bar", "dir1", "dir2", "foo"},
+		"*":       {"bar", "dir1", "dir2", "foo", "."},
 		"*/*/*":   {"dir1/dir11/file111", "dir2/dir21/file211", "dir2/dir21/file212"},
 		"*/*/*/*": nil,
 	} {
@@ -297,72 +330,32 @@ func TestReadOnDir(t *testing.T) {
 	}
 }
 
-func TestWalkDir_WithDotDirInArchive(t *testing.T) {
+func TestWithDotDirInArchive(t *testing.T) {
 	require := require.New(t)
 
-	tf, err := os.Open("test-with-dot-dir.tar")
+	f, err := os.Open("test-with-dot-dir.tar")
 	require.NoError(err)
-	defer tf.Close()
+	defer f.Close()
 
-	tfs, err := New(tf)
-	require.NoError(err)
-
-	paths := make([]string, 0, 12)
-
-	err = fs.WalkDir(tfs, ".", func(path string, d fs.DirEntry, err error) error {
-		paths = append(paths, path)
-		return nil
-	})
+	tfs, err := New(f)
 	require.NoError(err)
 
-	require.ElementsMatch([]string{
-		".",
-		"bar",
-		"foo",
-		"dir1",
-		"dir1/dir11",
-		"dir1/dir11/file111",
-		"dir1/file11",
-		"dir1/file12",
-		"dir2",
-		"dir2/dir21",
-		"dir2/dir21/file211",
-		"dir2/dir21/file212",
-	}, paths)
+	err = fstest.TestFS(tfs, "bar", "foo", "dir1", "dir1/dir11", "dir1/dir11/file111", "dir1/file11", "dir1/file12", "dir2", "dir2/dir21", "dir2/dir21/file211", "dir2/dir21/file212")
+	require.NoError(err)
 }
 
-func TestWalkDir_WithNoDirEntriesInArchive(t *testing.T) {
+func TestWithNoDirEntriesInArchive(t *testing.T) {
 	require := require.New(t)
 
-	tf, err := os.Open("test-no-directory-entries.tar")
+	f, err := os.Open("test-no-directory-entries.tar")
 	require.NoError(err)
-	defer tf.Close()
+	defer f.Close()
 
-	tfs, err := New(tf)
-	require.NoError(err)
-
-	paths := make([]string, 0, 12)
-
-	err = fs.WalkDir(tfs, ".", func(path string, d fs.DirEntry, err error) error {
-		paths = append(paths, path)
-		return nil
-	})
+	tfs, err := New(f)
 	require.NoError(err)
 
-	require.ElementsMatch([]string{
-		".",
-		"bar",
-		"foo",
-		"dir1",
-		"dir1/dir11",
-		"dir1/dir11/file111",
-		"dir1/file11",
-		"dir1/file12",
-		"dir2",
-		"dir2/dir21",
-		"dir2/dir21/file211",
-		"dir2/dir21/file212",
-	}, paths)
+	err = fstest.TestFS(tfs, "bar", "foo", "dir1", "dir1/dir11", "dir1/dir11/file111", "dir1/file11", "dir1/file12", "dir2", "dir2/dir21", "dir2/dir21/file211", "dir2/dir21/file212")
+	require.NoError(err)
 }
 
 func TestSparse(t *testing.T) {
