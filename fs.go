@@ -20,9 +20,16 @@ func New(r io.Reader) (fs.FS, error) {
 	tfs := &tarfs{make(map[string]fs.DirEntry)}
 	tfs.entries["."] = newDirEntry(fs.FileInfoToDirEntry(fakeDirFileInfo(".")))
 
-	ra, isReaderAt := r.(io.ReaderAt)
+	ra, isReaderAt := r.(readReaderAt)
+	if !isReaderAt {
+		buf, err := io.ReadAll(r)
+		if err != nil {
+			return nil, err
+		}
+		ra = bytes.NewReader(buf)
+	}
 
-	cr := &countingReader{r: r, n: 0}
+	cr := &countingReader{r: ra, n: 0}
 	tr := tar.NewReader(cr)
 
 	for {
@@ -43,20 +50,17 @@ func New(r io.Reader) (fs.FS, error) {
 
 		if h.FileInfo().IsDir() {
 			tfs.append(name, newDirEntry(de))
-		} else if isReaderAt {
-			tfs.append(name, &regEntry{de, name, ra, cr.n, nil})
 		} else {
-			buf := bytes.NewBuffer(make([]byte, 0, int(h.Size)))
-
-			if _, err := io.Copy(buf, tr); err != nil {
-				return nil, err
-			}
-
-			tfs.append(name, &regEntry{de, name, nil, 0, buf.Bytes()})
+			tfs.append(name, &regEntry{de, name, ra, cr.n})
 		}
 	}
 
 	return tfs, nil
+}
+
+type readReaderAt interface {
+	io.Reader
+	io.ReaderAt
 }
 
 type countingReader struct {
@@ -204,7 +208,6 @@ type regEntry struct {
 	name   string
 	ra     io.ReaderAt
 	offset int64
-	b      []byte
 }
 
 var _ entry = &regEntry{}
@@ -219,7 +222,7 @@ func (e *regEntry) readdir(path string) ([]fs.DirEntry, error) {
 }
 
 func (e *regEntry) readfile(path string) ([]byte, error) {
-	return e.bytes("readfile", path)
+	return io.ReadAll(e.open())
 }
 
 func (e *regEntry) entries(op, path string) ([]fs.DirEntry, error) {
@@ -227,33 +230,8 @@ func (e *regEntry) entries(op, path string) ([]fs.DirEntry, error) {
 }
 
 func (e *regEntry) open() *file {
-	r := e.readSeeker("open")
-	return &file{e, r, -1, false}
-}
-
-func (e *regEntry) readSeeker(op string) io.ReadSeeker {
-	if e.ra == nil {
-		return &file{e, bytes.NewReader(e.b), -1, false}
-	}
-
-	return io.NewSectionReader(e.ra, e.offset, e.size())
-}
-
-// FIXME rename ?
-func (e *regEntry) bytes(op, path string) ([]byte, error) {
-	if e.ra == nil {
-		buf := make([]byte, e.size())
-		copy(buf, e.b)
-		return buf, nil
-	}
-
 	r := io.NewSectionReader(e.ra, e.offset, e.size())
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return nil, newErr(op, path, err)
-	}
-
-	return data, nil
+	return &file{e, r, -1, false}
 }
 
 type dirEntry struct {
