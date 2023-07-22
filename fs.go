@@ -3,7 +3,6 @@ package tarfs
 import (
 	"archive/tar"
 	"bytes"
-	"errors"
 	"io"
 	"io/fs"
 	"path"
@@ -22,7 +21,9 @@ func New(r io.Reader) (fs.FS, error) {
 	tfs.entries["."] = newDirEntry(fs.FileInfoToDirEntry(fakeDirFileInfo(".")))
 
 	ra, isReaderAt := r.(io.ReaderAt)
-	tr := tar.NewReader(r)
+
+	cr := &countingReader{r: r, n: 0}
+	tr := tar.NewReader(cr)
 
 	for {
 		h, err := tr.Next()
@@ -43,7 +44,7 @@ func New(r io.Reader) (fs.FS, error) {
 		if h.FileInfo().IsDir() {
 			tfs.append(name, newDirEntry(de))
 		} else if isReaderAt {
-			tfs.append(name, &regEntry{de, name, ra, nil})
+			tfs.append(name, &regEntry{de, name, ra, cr.n, nil})
 		} else {
 			buf := bytes.NewBuffer(make([]byte, 0, int(h.Size)))
 
@@ -51,11 +52,22 @@ func New(r io.Reader) (fs.FS, error) {
 				return nil, err
 			}
 
-			tfs.append(name, &regEntry{de, name, nil, buf.Bytes()})
+			tfs.append(name, &regEntry{de, name, nil, 0, buf.Bytes()})
 		}
 	}
 
 	return tfs, nil
+}
+
+type countingReader struct {
+	r io.Reader
+	n int64
+}
+
+func (cr *countingReader) Read(p []byte) (int, error) {
+	n, err := cr.r.Read(p)
+	cr.n += int64(n)
+	return n, err
 }
 
 func (tfs *tarfs) append(name string, e fs.DirEntry) {
@@ -86,7 +98,7 @@ func (tfs *tarfs) Open(name string) (fs.File, error) {
 		return nil, err
 	}
 
-	return e.open(name)
+	return e.open(), nil
 }
 
 var _ fs.ReadDirFS = &tarfs{}
@@ -184,14 +196,15 @@ type entry interface {
 	readdir(path string) ([]fs.DirEntry, error)
 	readfile(path string) ([]byte, error)
 	entries(op, path string) ([]fs.DirEntry, error)
-	open(path string) (*file, error)
+	open() *file
 }
 
 type regEntry struct {
 	fs.DirEntry
-	name string
-	ra   io.ReaderAt
-	b    []byte
+	name   string
+	ra     io.ReaderAt
+	offset int64
+	b      []byte
 }
 
 var _ entry = &regEntry{}
@@ -213,73 +226,34 @@ func (e *regEntry) entries(op, path string) ([]fs.DirEntry, error) {
 	return nil, newErrNotDir(op, path)
 }
 
-func (e *regEntry) open(path string) (*file, error) {
-	r, err := e.readSeeker("open", path)
-	if err != nil {
-		return nil, err
-	}
-
-	return &file{e, r, -1, false}, nil
+func (e *regEntry) open() *file {
+	r := e.readSeeker("open")
+	return &file{e, r, -1, false}
 }
 
-func (e *regEntry) reader(op, path_ string) (io.Reader, error) {
-	const maxint64 = 1<<63 - 1
-	tr := tar.NewReader(io.NewSectionReader(e.ra, 0, maxint64))
-
-	for {
-		h, err := tr.Next()
-
-		if err == io.EOF {
-			break
-		}
-
-		if err != nil {
-			return nil, err
-		}
-
-		if path.Clean(h.Name) == e.name {
-			return tr, nil
-		}
-	}
-
-	return nil, newErrNotExist(op, path_)
-}
-
-func (e *regEntry) readSeeker(op, path string) (io.ReadSeeker, error) {
+func (e *regEntry) readSeeker(op string) io.ReadSeeker {
 	if e.ra == nil {
-		return &file{e, bytes.NewReader(e.b), -1, false}, nil
+		return &file{e, bytes.NewReader(e.b), -1, false}
 	}
 
-	r, err := e.reader(op, path)
-	if err != nil {
-		return nil, newErr(op, path, err)
-	}
-
-	return &regEntryReader{e, 0, r, 0}, nil
+	return io.NewSectionReader(e.ra, e.offset, e.size())
 }
 
 // FIXME rename ?
 func (e *regEntry) bytes(op, path string) ([]byte, error) {
 	if e.ra == nil {
 		buf := make([]byte, e.size())
-
 		copy(buf, e.b)
-
 		return buf, nil
 	}
 
-	r, err := e.reader(op, path)
+	r := io.NewSectionReader(e.ra, e.offset, e.size())
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, newErr(op, path, err)
 	}
 
-	buf := bytes.NewBuffer(make([]byte, 0, e.size()))
-
-	if _, err := io.Copy(buf, r); err != nil {
-		return nil, newErr(op, path, err)
-	}
-
-	return buf.Bytes(), nil
+	return data, nil
 }
 
 type dirEntry struct {
@@ -326,8 +300,8 @@ func (e *dirEntry) entries(op, path string) ([]fs.DirEntry, error) {
 	return e._entries, nil
 }
 
-func (e *dirEntry) open(path string) (*file, error) {
-	return &file{e, nil, 0, false}, nil
+func (e *dirEntry) open() *file {
+	return &file{e, nil, 0, false}
 }
 
 type fakeDirFileInfo string
@@ -372,63 +346,4 @@ func (entries entriesByName) Len() int {
 
 func (entries entriesByName) Swap(i, j int) {
 	entries[i], entries[j] = entries[j], entries[i]
-}
-
-type regEntryReader struct {
-	e  *regEntry
-	i  int64
-	r  io.Reader
-	ri int64
-}
-
-var _ io.ReadSeeker = &regEntryReader{}
-
-func (r *regEntryReader) Read(p []byte) (int, error) {
-	const op = "read"
-
-	if r.i < r.ri {
-		nr, err := r.e.reader(op, r.e.name)
-		if err != nil {
-			return 0, err
-		}
-
-		r.r = nr
-		r.ri = 0
-	}
-
-	if r.i > r.ri {
-		n, err := io.CopyN(io.Discard, r.r, r.i-r.ri)
-		r.ri += n
-		if err != nil {
-			return 0, newErr(op, r.e.name, err)
-		}
-	}
-
-	n, err := r.r.Read(p)
-
-	r.i += int64(n)
-	r.ri += int64(n)
-
-	return n, err
-}
-
-func (r *regEntryReader) Seek(offset int64, whence int) (int64, error) {
-	const op = "seek"
-
-	var abs int64
-	switch whence {
-	case io.SeekStart:
-		abs = offset
-	case io.SeekCurrent:
-		abs = r.i + offset
-	case io.SeekEnd:
-		abs = r.e.size() + offset
-	default:
-		return 0, newErr(op, r.e.name, errors.New("invalid whence"))
-	}
-	if abs < 0 {
-		return 0, newErr(op, r.e.name, errors.New("negative position"))
-	}
-	r.i = abs
-	return abs, nil
 }
