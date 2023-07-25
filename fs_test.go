@@ -136,8 +136,7 @@ func TestReadDirNotDir(t *testing.T) {
 }
 
 func TestReadFile(t *testing.T) {
-	require := require.New(t)
-	assert := assert.New(t)
+	require, assert := require.New(t), assert.New(t)
 
 	f, err := os.Open("test.tar")
 	require.NoError(err)
@@ -161,8 +160,7 @@ func TestReadFile(t *testing.T) {
 }
 
 func TestStat(t *testing.T) {
-	require := require.New(t)
-	assert := assert.New(t)
+	require, assert := require.New(t), assert.New(t)
 
 	f, err := os.Open("test.tar")
 	require.NoError(err)
@@ -193,8 +191,7 @@ func TestStat(t *testing.T) {
 }
 
 func TestGlob(t *testing.T) {
-	require := require.New(t)
-	assert := assert.New(t)
+	require, assert := require.New(t), assert.New(t)
 
 	f, err := os.Open("test.tar")
 	require.NoError(err)
@@ -219,8 +216,7 @@ func TestGlob(t *testing.T) {
 }
 
 func TestSubThenReadDir(t *testing.T) {
-	require := require.New(t)
-	assert := assert.New(t)
+	require, assert := require.New(t), assert.New(t)
 
 	f, err := os.Open("test.tar")
 	require.NoError(err)
@@ -276,8 +272,7 @@ func TestSubThenReadFile(t *testing.T) {
 }
 
 func TestReadOnDir(t *testing.T) {
-	require := require.New(t)
-	assert := assert.New(t)
+	require, assert := require.New(t), assert.New(t)
 
 	tf, err := os.Open("test.tar")
 	require.NoError(err)
@@ -368,4 +363,29 @@ func TestWalkDir_WithNoDirEntriesInArchive(t *testing.T) {
 		"dir2/dir21/file211",
 		"dir2/dir21/file212",
 	}, paths)
+}
+
+func TestSparse(t *testing.T) {
+	require, assert := require.New(t), assert.New(t)
+
+	f, err := os.Open("test-sparse.tar")
+	require.NoError(err)
+	defer f.Close()
+
+	tfs, err := New(f)
+	require.NoError(err)
+
+	err = fstest.TestFS(tfs, "file1", "file2")
+	assert.NoError(err)
+
+	if file1Actual, err := fs.ReadFile(tfs, "file1"); assert.NoError(err, "fs.ReadFile(tfs, \"file1\")") {
+		file1Expected := make([]byte, 1000000)
+		copy(file1Expected, []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1})
+		copy(file1Expected[999990:], []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1})
+		assert.Equal(file1Expected, file1Actual, "fs.ReadFile(tfs, \"file1\")")
+	}
+
+	if file2Actual, err := fs.ReadFile(tfs, "file2"); assert.NoError(err, "fs.ReadFile(tfs, \"file2\")") {
+		assert.Equal([]byte("file2"), file2Actual, "fs.ReadFile(tfs, \"file2\")")
+	}
 }
