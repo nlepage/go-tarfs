@@ -33,7 +33,13 @@ func New(r io.Reader) (fs.FS, error) {
 		ra = bytes.NewReader(buf)
 	}
 
-	cr := &countingReader{Reader: ra, n: 0}
+	var cr readCounterIface
+	if rs, isReadSeeker := ra.(io.ReadSeeker); isReadSeeker {
+		cr = &readSeekCounter{ReadSeeker: rs}
+	} else {
+		cr = &readCounter{Reader: ra}
+	}
+
 	tr := tar.NewReader(cr)
 
 	for {
@@ -55,7 +61,7 @@ func New(r io.Reader) (fs.FS, error) {
 		if h.FileInfo().IsDir() {
 			tfs.append(name, newDirEntry(de))
 		} else {
-			tfs.append(name, &regEntry{de, name, ra, cr.n - blockSize})
+			tfs.append(name, &regEntry{de, name, ra, cr.Count() - blockSize})
 		}
 	}
 
@@ -67,15 +73,45 @@ type readReaderAt interface {
 	io.ReaderAt
 }
 
-type countingReader struct {
+type readCounterIface interface {
 	io.Reader
-	n int64
+	Count() int64
 }
 
-func (cr *countingReader) Read(p []byte) (int, error) {
-	n, err := cr.Reader.Read(p)
-	cr.n += int64(n)
-	return n, err
+type readCounter struct {
+	io.Reader
+	off int64
+}
+
+func (cr *readCounter) Read(p []byte) (n int, err error) {
+	n, err = cr.Reader.Read(p)
+	cr.off += int64(n)
+	return
+}
+
+func (cr *readCounter) Count() int64 {
+	return cr.off
+}
+
+type readSeekCounter struct {
+	io.ReadSeeker
+	off int64
+}
+
+func (cr *readSeekCounter) Read(p []byte) (n int, err error) {
+	n, err = cr.ReadSeeker.Read(p)
+	cr.off += int64(n)
+	return
+}
+
+func (cr *readSeekCounter) Seek(offset int64, whence int) (abs int64, err error) {
+	abs, err = cr.ReadSeeker.Seek(offset, whence)
+	cr.off = abs
+	return
+}
+
+func (cr *readSeekCounter) Count() int64 {
+	return cr.off
 }
 
 func (tfs *tarfs) append(name string, e fs.DirEntry) {
