@@ -178,17 +178,24 @@ func TestReadFile(t *testing.T) {
 	tfs, err := New(f)
 	require.NoError(err)
 
-	for name, content := range map[string]string{
-		"dir1/dir11/file111": "file111",
-		"dir2/dir21/file212": "file212",
-		"foo":                "foo",
+	for _, file := range []struct {
+		path    string
+		content string
+	}{
+		{"bar", "bar"},
+		{"dir1/dir11/file111", "file111"},
+		{"dir1/file11", "file11"},
+		{"dir1/file12", "file12"},
+		{"dir2/dir21/file211", "file211"},
+		{"dir2/dir21/file212", "file212"},
+		{"foo", "foo"},
 	} {
-		b, err := fs.ReadFile(tfs, name)
-		if !assert.NoErrorf(err, "when fs.ReadFile(tfs, %#v)", name) {
+		b, err := fs.ReadFile(tfs, file.path)
+		if !assert.NoErrorf(err, "when fs.ReadFile(tfs, %#v)", file.path) {
 			continue
 		}
 
-		assert.Equalf(content, string(b), "in %#v", name)
+		assert.Equalf(file.content, string(b), "in %#v", file.path)
 	}
 }
 
