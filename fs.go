@@ -33,7 +33,7 @@ func New(r io.Reader) (fs.FS, error) {
 		ra = bytes.NewReader(buf)
 	}
 
-	cr := &countingReader{r: ra, n: 0}
+	cr := &countingReader{Reader: ra, n: 0}
 	tr := tar.NewReader(cr)
 
 	for {
@@ -68,12 +68,12 @@ type readReaderAt interface {
 }
 
 type countingReader struct {
-	r io.Reader
+	io.Reader
 	n int64
 }
 
 func (cr *countingReader) Read(p []byte) (int, error) {
-	n, err := cr.r.Read(p)
+	n, err := cr.Reader.Read(p)
 	cr.n += int64(n)
 	return n, err
 }
