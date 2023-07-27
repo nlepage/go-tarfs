@@ -11,6 +11,10 @@ import (
 	"time"
 )
 
+const (
+	blockSize = 512 // Size of each block in a tar stream
+)
+
 type tarfs struct {
 	entries map[string]fs.DirEntry
 }
@@ -51,7 +55,7 @@ func New(r io.Reader) (fs.FS, error) {
 		if h.FileInfo().IsDir() {
 			tfs.append(name, newDirEntry(de))
 		} else {
-			tfs.append(name, &regEntry{de, name, ra, cr.n})
+			tfs.append(name, &regEntry{de, name, ra, cr.n - blockSize})
 		}
 	}
 
@@ -102,7 +106,7 @@ func (tfs *tarfs) Open(name string) (fs.File, error) {
 		return nil, err
 	}
 
-	return e.open(), nil
+	return e.open()
 }
 
 var _ fs.ReadDirFS = &tarfs{}
@@ -200,7 +204,7 @@ type entry interface {
 	readdir(path string) ([]fs.DirEntry, error)
 	readfile(path string) ([]byte, error)
 	entries(op, path string) ([]fs.DirEntry, error)
-	open() *file
+	open() (*file, error)
 }
 
 type regEntry struct {
@@ -222,16 +226,32 @@ func (e *regEntry) readdir(path string) ([]fs.DirEntry, error) {
 }
 
 func (e *regEntry) readfile(path string) ([]byte, error) {
-	return io.ReadAll(e.open())
+	tr := tar.NewReader(io.NewSectionReader(e.ra, e.offset, 1<<63-1))
+
+	if _, err := tr.Next(); err != nil {
+		return nil, err
+	}
+
+	b := bytes.NewBuffer(make([]byte, 0, e.size()))
+
+	if _, err := io.Copy(b, tr); err != nil {
+		return nil, err
+	}
+
+	return b.Bytes(), nil
 }
 
 func (e *regEntry) entries(op, path string) ([]fs.DirEntry, error) {
 	return nil, newErrNotDir(op, path)
 }
 
-func (e *regEntry) open() *file {
-	r := io.NewSectionReader(e.ra, e.offset, e.size())
-	return &file{e, r, -1, false}
+func (e *regEntry) open() (*file, error) {
+	b, err := e.readfile("")
+	if err != nil {
+		return nil, err
+	}
+
+	return &file{e, bytes.NewReader(b), -1, false}, nil
 }
 
 type dirEntry struct {
@@ -278,8 +298,8 @@ func (e *dirEntry) entries(op, path string) ([]fs.DirEntry, error) {
 	return e._entries, nil
 }
 
-func (e *dirEntry) open() *file {
-	return &file{e, nil, 0, false}
+func (e *dirEntry) open() (*file, error) {
+	return &file{e, nil, 0, false}, nil
 }
 
 type fakeDirFileInfo string
