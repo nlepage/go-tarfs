@@ -16,7 +16,7 @@ func Example_stat() {
 	}
 	defer tf.Close()
 
-	tfs, err := tarfs.New(tf)
+	tfs, err := tarfs.New(tf, tarfs.DisableSeek(true))
 	if err != nil {
 		panic(err)
 	}

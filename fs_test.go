@@ -18,7 +18,7 @@ func TestFS(t *testing.T) {
 	require.NoError(err)
 	defer f.Close()
 
-	tfs, err := New(f)
+	tfs, err := New(f, DisableSeek(true))
 	require.NoError(err)
 
 	err = fstest.TestFS(tfs, "bar", "foo", "dir1", "dir1/dir11", "dir1/dir11/file111", "dir1/file11", "dir1/file12", "dir2", "dir2/dir21", "dir2/dir21/file211", "dir2/dir21/file212")
@@ -32,7 +32,7 @@ func TestOpenInvalid(t *testing.T) {
 	require.NoError(err)
 	defer f.Close()
 
-	tfs, err := New(f)
+	tfs, err := New(f, DisableSeek(true))
 	require.NoError(err)
 
 	for _, name := range []string{"/foo", "./foo", "foo/", "foo/../foo", "foo//bar"} {
@@ -48,7 +48,7 @@ func TestOpenNotExist(t *testing.T) {
 	require.NoError(err)
 	defer f.Close()
 
-	tfs, err := New(f)
+	tfs, err := New(f, DisableSeek(true))
 	require.NoError(err)
 
 	for _, name := range []string{"baz", "qwe", "foo/bar", "file11"} {
@@ -64,7 +64,7 @@ func TestOpenThenStat(t *testing.T) {
 	require.NoError(err)
 	defer f.Close()
 
-	tfs, err := New(f)
+	tfs, err := New(f, DisableSeek(true))
 	require.NoError(err)
 
 	for _, file := range []struct {
@@ -100,7 +100,7 @@ func TestOpenThenReadAll(t *testing.T) {
 	require.NoError(err)
 	defer f.Close()
 
-	tfs, err := New(f)
+	tfs, err := New(f, DisableSeek(true))
 	require.NoError(err)
 
 	for _, file := range []struct {
@@ -132,7 +132,7 @@ func TestReadDir(t *testing.T) {
 	require.NoError(err)
 	defer f.Close()
 
-	tfs, err := New(f)
+	tfs, err := New(f, DisableSeek(true))
 	require.NoError(err)
 
 	for _, dir := range []struct {
@@ -159,7 +159,7 @@ func TestReadDirNotDir(t *testing.T) {
 	require.NoError(err)
 	defer f.Close()
 
-	tfs, err := New(f)
+	tfs, err := New(f, DisableSeek(true))
 	require.NoError(err)
 
 	for _, name := range []string{"foo", "dir1/file12"} {
@@ -175,7 +175,7 @@ func TestReadFile(t *testing.T) {
 	require.NoError(err)
 	defer f.Close()
 
-	tfs, err := New(f)
+	tfs, err := New(f, DisableSeek(true))
 	require.NoError(err)
 
 	for _, file := range []struct {
@@ -206,7 +206,7 @@ func TestStat(t *testing.T) {
 	require.NoError(err)
 	defer f.Close()
 
-	tfs, err := New(f)
+	tfs, err := New(f, DisableSeek(true))
 	require.NoError(err)
 
 	for _, file := range []struct {
@@ -237,7 +237,7 @@ func TestGlob(t *testing.T) {
 	require.NoError(err)
 	defer f.Close()
 
-	tfs, err := New(f)
+	tfs, err := New(f, DisableSeek(true))
 	require.NoError(err)
 
 	for pattern, expected := range map[string][]string{
@@ -262,7 +262,7 @@ func TestSubThenReadDir(t *testing.T) {
 	require.NoError(err)
 	defer f.Close()
 
-	tfs, err := New(f)
+	tfs, err := New(f, DisableSeek(true))
 	require.NoError(err)
 
 	for _, dir := range []struct {
@@ -294,7 +294,7 @@ func TestSubThenReadFile(t *testing.T) {
 	require.NoError(err)
 	defer f.Close()
 
-	tfs, err := New(f)
+	tfs, err := New(f, DisableSeek(true))
 	require.NoError(err)
 
 	name := "dir2"
@@ -318,7 +318,7 @@ func TestReadOnDir(t *testing.T) {
 	require.NoError(err)
 	defer tf.Close()
 
-	tfs, err := New(tf)
+	tfs, err := New(tf, DisableSeek(true))
 	require.NoError(err)
 
 	var dirs = []string{"dir1", "dir2/dir21", "."}
@@ -344,7 +344,7 @@ func TestWithDotDirInArchive(t *testing.T) {
 	require.NoError(err)
 	defer f.Close()
 
-	tfs, err := New(f)
+	tfs, err := New(f, DisableSeek(true))
 	require.NoError(err)
 
 	err = fstest.TestFS(tfs, "bar", "foo", "dir1", "dir1/dir11", "dir1/dir11/file111", "dir1/file11", "dir1/file12", "dir2", "dir2/dir21", "dir2/dir21/file211", "dir2/dir21/file212")
@@ -358,7 +358,7 @@ func TestWithNoDirEntriesInArchive(t *testing.T) {
 	require.NoError(err)
 	defer f.Close()
 
-	tfs, err := New(f)
+	tfs, err := New(f, DisableSeek(true))
 	require.NoError(err)
 
 	err = fstest.TestFS(tfs, "bar", "foo", "dir1", "dir1/dir11", "dir1/dir11/file111", "dir1/file11", "dir1/file12", "dir2", "dir2/dir21", "dir2/dir21/file211", "dir2/dir21/file212")
@@ -372,7 +372,7 @@ func TestSparse(t *testing.T) {
 	require.NoError(err)
 	defer f.Close()
 
-	tfs, err := New(f)
+	tfs, err := New(f, DisableSeek(true))
 	require.NoError(err)
 
 	err = fstest.TestFS(tfs, "file1", "file2")

@@ -7,7 +7,7 @@ import (
 
 type file struct {
 	entry
-	r          io.ReadSeeker
+	r          io.Reader
 	readDirPos int
 	closed     bool
 }
@@ -51,22 +51,6 @@ func (f *file) Close() error {
 	return nil
 }
 
-var _ io.Seeker = &file{}
-
-func (f *file) Seek(offset int64, whence int) (int64, error) {
-	const op = "seek"
-
-	if f.closed {
-		return 0, newErrClosed(op, f.Name())
-	}
-
-	if f.IsDir() {
-		return 0, newErrDir(op, f.Name())
-	}
-
-	return f.r.Seek(offset, whence)
-}
-
 var _ fs.ReadDirFile = &file{}
 
 func (f *file) ReadDir(n int) ([]fs.DirEntry, error) {
@@ -99,4 +83,25 @@ func (f *file) ReadDir(n int) ([]fs.DirEntry, error) {
 	f.readDirPos += n
 
 	return entries, nil
+}
+
+type fileSeeker struct {
+	file
+	seeker io.Seeker
+}
+
+var _ io.ReadSeeker = &fileSeeker{}
+
+func (f *fileSeeker) Seek(offset int64, whence int) (int64, error) {
+	const op = "seek"
+
+	if f.closed {
+		return 0, newErrClosed(op, f.Name())
+	}
+
+	if f.IsDir() {
+		return 0, newErrDir(op, f.Name())
+	}
+
+	return f.seeker.Seek(offset, whence)
 }

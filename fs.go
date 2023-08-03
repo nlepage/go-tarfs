@@ -19,8 +19,25 @@ type tarfs struct {
 	entries map[string]fs.DirEntry
 }
 
+type options struct {
+	disableSeek bool
+}
+
+type Option func(*options)
+
+func DisableSeek(disable bool) func(*options) {
+	return func(o *options) {
+		o.disableSeek = disable
+	}
+}
+
 // New creates a new tar fs.FS from r
-func New(r io.Reader) (fs.FS, error) {
+func New(r io.Reader, opts ...Option) (fs.FS, error) {
+	o := &options{}
+	for _, opt := range opts {
+		opt(o)
+	}
+
 	tfs := &tarfs{make(map[string]fs.DirEntry)}
 	tfs.entries["."] = newDirEntry(fs.FileInfoToDirEntry(fakeDirFileInfo(".")))
 
@@ -61,7 +78,7 @@ func New(r io.Reader) (fs.FS, error) {
 		if h.FileInfo().IsDir() {
 			tfs.append(name, newDirEntry(de))
 		} else {
-			tfs.append(name, &regEntry{de, name, ra, cr.Count() - blockSize})
+			tfs.append(name, &regEntry{de, o.disableSeek, name, ra, cr.Count() - blockSize})
 		}
 	}
 
@@ -240,14 +257,15 @@ type entry interface {
 	readdir(path string) ([]fs.DirEntry, error)
 	readfile(path string) ([]byte, error)
 	entries(op, path string) ([]fs.DirEntry, error)
-	open() (*file, error)
+	open() (fs.File, error)
 }
 
 type regEntry struct {
 	fs.DirEntry
-	name   string
-	ra     io.ReaderAt
-	offset int64
+	disableSeek bool
+	name        string
+	ra          io.ReaderAt
+	offset      int64
 }
 
 var _ entry = &regEntry{}
@@ -262,18 +280,15 @@ func (e *regEntry) readdir(path string) ([]fs.DirEntry, error) {
 }
 
 func (e *regEntry) readfile(path string) ([]byte, error) {
-	tr := tar.NewReader(io.NewSectionReader(e.ra, e.offset, 1<<63-1))
-
-	if _, err := tr.Next(); err != nil {
+	f, err := e.openReader()
+	if err != nil {
 		return nil, err
 	}
 
 	b := bytes.NewBuffer(make([]byte, 0, e.size()))
-
-	if _, err := io.Copy(b, tr); err != nil {
+	if _, err := io.Copy(b, f); err != nil {
 		return nil, err
 	}
-
 	return b.Bytes(), nil
 }
 
@@ -281,13 +296,33 @@ func (e *regEntry) entries(op, path string) ([]fs.DirEntry, error) {
 	return nil, newErrNotDir(op, path)
 }
 
-func (e *regEntry) open() (*file, error) {
-	b, err := e.readfile("")
+func (e *regEntry) openReader() (io.Reader, error) {
+	tr := tar.NewReader(io.NewSectionReader(e.ra, e.offset, 1<<63-1))
+
+	if _, err := tr.Next(); err != nil {
+		return nil, err
+	}
+	return tr, nil
+}
+
+func (e *regEntry) open() (fs.File, error) {
+	tr, err := e.openReader()
 	if err != nil {
 		return nil, err
 	}
+	if e.disableSeek {
+		return &file{e, tr, -1, false}, nil
+	}
 
-	return &file{e, bytes.NewReader(b), -1, false}, nil
+	b := bytes.NewBuffer(make([]byte, 0, e.size()))
+	if _, err := io.Copy(b, tr); err != nil {
+		return nil, err
+	}
+	r := bytes.NewReader(b.Bytes())
+	return &fileSeeker{
+		file:   file{e, r, -1, false},
+		seeker: r,
+	}, nil
 }
 
 type dirEntry struct {
@@ -334,7 +369,7 @@ func (e *dirEntry) entries(op, path string) ([]fs.DirEntry, error) {
 	return e._entries, nil
 }
 
-func (e *dirEntry) open() (*file, error) {
+func (e *dirEntry) open() (fs.File, error) {
 	return &file{e, nil, 0, false}, nil
 }
 

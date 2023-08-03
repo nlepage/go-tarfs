@@ -2,6 +2,7 @@ package tarfs
 
 import (
 	"archive/tar"
+	"io"
 	"io/fs"
 	"math/rand"
 	"os"
@@ -33,6 +34,16 @@ func BenchmarkOpenTarThenReadFile_ManySmallFiles(b *testing.B) {
 	}
 }
 
+func BenchmarkOpenTarThenReadFile_ManySmallFiles_DisableSeek(b *testing.B) {
+	fileName := randomFileName["many-small-files.tar"]
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		openTarThenReadFile("many-small-files.tar", fileName, tarfs.DisableSeek(true))
+	}
+}
+
 func BenchmarkOpenTarThenReadFile_FewLargeFiles(b *testing.B) {
 	fileName := randomFileName["few-large-files.tar"]
 
@@ -43,22 +54,72 @@ func BenchmarkOpenTarThenReadFile_FewLargeFiles(b *testing.B) {
 	}
 }
 
+func BenchmarkOpenTarThenReadFile_FewLargeFiles_DisableSeek(b *testing.B) {
+	fileName := randomFileName["few-large-files.tar"]
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		openTarThenReadFile("few-large-files.tar", fileName, tarfs.DisableSeek(true))
+	}
+}
+
 func BenchmarkReadFile_ManySmallFiles(b *testing.B) {
 	benchmarkReadFile(b, "many-small-files.tar")
+}
+
+func BenchmarkReadFile_ManySmallFiles_DisableSeek(b *testing.B) {
+	benchmarkReadFile(b, "many-small-files.tar", tarfs.DisableSeek(true))
 }
 
 func BenchmarkReadFile_FewLargeFiles(b *testing.B) {
 	benchmarkReadFile(b, "few-large-files.tar")
 }
 
-func benchmarkReadFile(b *testing.B, tarFileName string) {
+func BenchmarkReadFile_FewLargeFiles_DisableSeek(b *testing.B) {
+	benchmarkReadFile(b, "few-large-files.tar", tarfs.DisableSeek(true))
+}
+
+func BenchmarkOpenReadAndCloseFile_ManySmallFiles(b *testing.B) {
+	benchmarkOpenReadAndCloseFile(b, "many-small-files.tar")
+}
+
+func BenchmarkOpenReadAndCloseFile_ManySmallFiles_DisableSeek(b *testing.B) {
+	benchmarkOpenReadAndCloseFile(b, "many-small-files.tar", tarfs.DisableSeek(true))
+}
+
+func BenchmarkOpenReadAndCloseFile_FewLargeFiles(b *testing.B) {
+	benchmarkOpenReadAndCloseFile(b, "few-large-files.tar")
+}
+
+func BenchmarkOpenReadAndCloseFile_FewLargeFiles_DisableSeek(b *testing.B) {
+	benchmarkOpenReadAndCloseFile(b, "few-large-files.tar", tarfs.DisableSeek(true))
+}
+
+func BenchmarkOpenAndCloseFile_ManySmallFiles(b *testing.B) {
+	benchmarkOpenAndCloseFile(b, "many-small-files.tar")
+}
+
+func BenchmarkOpenAndCloseFile_ManySmallFiles_DisableSeek(b *testing.B) {
+	benchmarkOpenAndCloseFile(b, "many-small-files.tar", tarfs.DisableSeek(true))
+}
+
+func BenchmarkOpenAndCloseFile_FewLargeFiles(b *testing.B) {
+	benchmarkOpenAndCloseFile(b, "few-large-files.tar")
+}
+
+func BenchmarkOpenAndCloseFile_FewLargeFiles_DisableSeek(b *testing.B) {
+	benchmarkOpenAndCloseFile(b, "few-large-files.tar", tarfs.DisableSeek(true))
+}
+
+func benchmarkReadFile(b *testing.B, tarFileName string, options ...tarfs.Option) {
 	tf, err := os.Open(tarFileName)
 	if err != nil {
 		panic(err)
 	}
 	defer tf.Close()
 
-	tfs, err := tarfs.New(tf)
+	tfs, err := tarfs.New(tf, options...)
 	if err != nil {
 		panic(err)
 	}
@@ -74,7 +135,69 @@ func benchmarkReadFile(b *testing.B, tarFileName string) {
 	}
 }
 
-func openTarThenReadFile(tarName, fileName string) {
+func benchmarkOpenAndCloseFile(b *testing.B, tarFileName string, options ...tarfs.Option) {
+	tf, err := os.Open(tarFileName)
+	if err != nil {
+		panic(err)
+	}
+	defer tf.Close()
+
+	tfs, err := tarfs.New(tf, options...)
+	if err != nil {
+		panic(err)
+	}
+
+	fileName := randomFileName[tarFileName]
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		f, err := tfs.Open(fileName)
+		if err != nil {
+			panic(err)
+		}
+		if err := f.Close(); err != nil {
+			panic(err)
+		}
+	}
+}
+
+func benchmarkOpenReadAndCloseFile(b *testing.B, tarFileName string, options ...tarfs.Option) {
+	tf, err := os.Open(tarFileName)
+	if err != nil {
+		panic(err)
+	}
+	defer tf.Close()
+
+	tfs, err := tarfs.New(tf, options...)
+	if err != nil {
+		panic(err)
+	}
+
+	fileName := randomFileName[tarFileName]
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		f, err := tfs.Open(fileName)
+		if err != nil {
+			panic(err)
+		}
+		st, err := f.Stat()
+		if err != nil {
+			panic(err)
+		}
+		buf := make([]byte, st.Size())
+		if _, err := io.ReadFull(f, buf); err != nil {
+			panic(err)
+		}
+		if err := f.Close(); err != nil {
+			panic(err)
+		}
+	}
+}
+
+func openTarThenReadFile(tarName, fileName string, options ...tarfs.Option) {
 	tf, err := os.Open(tarName)
 	if err != nil {
 		panic(err)
@@ -83,7 +206,7 @@ func openTarThenReadFile(tarName, fileName string) {
 
 	var tfs fs.FS
 
-	tfs, err = tarfs.New(tf)
+	tfs, err = tarfs.New(tf, options...)
 	if err != nil {
 		panic(err)
 	}
