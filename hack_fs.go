@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"path"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/nlepage/go-tarfs/tar"
@@ -128,6 +129,7 @@ func (dirEntryFromFolder) Sys() interface{} {
 }
 
 func (tfs *hackfs) addFoldersAndParents(dir string, de fs.DirEntry) {
+	dir = strings.TrimSuffix(dir, "/")
 	f := tfs.folders[dir]
 	if f != nil {
 		f.DirEntries = append(f.DirEntries, de)
@@ -135,6 +137,9 @@ func (tfs *hackfs) addFoldersAndParents(dir string, de fs.DirEntry) {
 	}
 
 	parent, name := path.Split(dir)
+	if parent == "" {
+		parent = "."
+	}
 
 	dirEntry := dirEntryFromFolder{name: name}
 	tfs.folders[dir] = &folder{
