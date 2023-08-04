@@ -151,7 +151,7 @@ func (tfs *hackfs) addFoldersAndParents(dir string, de fs.DirEntry) {
 func (tfs hackfs) Open(name string) (fs.File, error) {
 	if f, ok := tfs.files[name]; ok {
 		return hackFile{
-			// make a new one, so that new Read ar at the start
+			// make a new one, so that new Read are at the start
 			SectionReader: io.NewSectionReader(f, 0, f.SectionReader.Size()),
 			FileInfo:      f.FileInfo,
 		}, nil
