@@ -31,6 +31,7 @@ func TestHackFSTarTestdata(t *testing.T) {
 		"gnu-utf8.tar":            {"☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹"},
 		"gnu.tar":                 {"small.txt", "small2.txt"},
 		"hardlink.tar":            {"file.txt", "hard.txt"},
+		"hdr-only.tar":            {"badlink", "dir", "fifo", "file", "hardlink", "null", "sda", "symlink"},
 		"invalid-go17.tar":        {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/foo"},
 		"nil-uid.tar":             {"P1050238.JPG.log"},
 		"pax-global-records.tar":  {"GlobalHead.0.0", "file1", "file2", "file3", "file4", "global1"},
@@ -50,14 +51,20 @@ func TestHackFSTarTestdata(t *testing.T) {
 		"xattrs.tar":              {"small.txt", "small2.txt"},
 		//*/
 
-		// fs.ReadDir: list not sorted: badlink before badlink
-		// "hdr-only.tar": {"badlink", "dir", "fifo", "file", "hardlink", "null", "sda", "symlink"},
+		// slow (~ 45s)
+		// "gnu-incremental.tar": {"test2", "test2/foo", "test2/sparse"},
+
+		// killed (out of memory?
+		// "gnu-sparse-big.tar": nil,
+		// "pax-sparse-big.tar": nil,
 
 		// sparse-posix-1.0: failed TestReader: ReadAll(small amounts)
 		// "sparse-formats.tar": {"end", "sparse-gnu", "sparse-posix-0.0", "sparse-posix-0.1", "sparse-posix-1.0"},
 
 		// archive with no valid path name
 		// "gnu-not-utf8.tar": nil,
+
+		// empty archive
 		// "pax-path-hdr.tar": nil,
 
 		// archive/tar: invalid tar header
@@ -73,13 +80,6 @@ func TestHackFSTarTestdata(t *testing.T) {
 		// unexpected EOF
 		// "writer-big-long.tar": nil,
 		// "writer-big.tar": nil,
-
-		// slow (~ 45s)
-		// "gnu-incremental.tar": {"test2", "test2/foo", "test2/sparse"},
-
-		// killed (out of memory?
-		// "gnu-sparse-big.tar": nil,
-		// "pax-sparse-big.tar": nil,
 	} {
 		t.Run(archive, func(t *testing.T) {
 			t.Log(archive)

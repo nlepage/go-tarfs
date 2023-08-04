@@ -42,21 +42,25 @@ func NewFS(r io.Reader) (fs.FS, error) {
 
 		fi := h.FileInfo()
 		if fi.IsDir() {
-			if f := tfs.folders[name]; f != nil {
-				f.FileInfo = fi
-			} else {
-				tfs.folders[name] = &folder{
-					FileInfo: fi,
-				}
-				dir := path.Dir(name)
-				tfs.addFoldersAndParents(dir, dirEntryFromFileInfo{fi})
+			if _, ok := tfs.folders[name]; ok {
+				// fmt.Println("duplicate folder", name)
+				continue
 			}
+			tfs.folders[name] = &folder{
+				FileInfo: fi,
+			}
+			dir := path.Dir(name)
+			tfs.addFoldersAndParents(dir, dirEntryFromFileInfo{fi})
 			continue
 		}
 
 		sr, err := tr.SectionReader()
 		if err != nil {
 			return nil, err
+		}
+		if _, ok := tfs.files[name]; ok {
+			// fmt.Println("duplicate file", name)
+			continue
 		}
 
 		tfs.files[name] = hackFile{
