@@ -5,26 +5,19 @@ import (
 	"io"
 )
 
-type SectionReader interface {
-	Read(p []byte) (n int, err error)
-	ReadAt(p []byte, off int64) (n int, err error)
-	Seek(offset int64, whence int) (int64, error)
-	// Size() int64
-}
-
 // SectionReader returns the current section reader.
-func (tr *Reader) SectionReader() (SectionReader, error) {
+func (tr *Reader) SectionReader() (*io.SectionReader, error) {
 	return makeSectionReader(tr.curr)
 }
 
-func makeSectionReader(fr fileReader) (SectionReader, error) {
+func makeSectionReader(fr fileReader) (*io.SectionReader, error) {
 	n := fr.logicalRemaining()
 	switch fr := fr.(type) {
 
 	case *regFileReader:
-		ra, ok := fr.r.(SectionReader)
+		ra, ok := fr.r.(io.ReaderAt)
 		if !ok {
-			return nil, fmt.Errorf("expected an SectionReader, got: %T", fr.r)
+			return nil, fmt.Errorf("expected an io.ReaderAt, got: %T", fr.r)
 		}
 		if fr.off < 0 {
 			return nil, fmt.Errorf("unexpected negative offset: %d", fr.off)
@@ -48,9 +41,9 @@ func makeSectionReader(fr fileReader) (SectionReader, error) {
 }
 
 type sparseFileReaderAt struct {
-	fr  SectionReader // Underlying fileReader
-	sp  sparseHoles   // Normalized list of sparse holes
-	pos int64         // Current position in sparse file
+	fr  io.ReaderAt // Underlying fileReader
+	sp  sparseHoles // Normalized list of sparse holes
+	pos int64       // Current position in sparse file
 }
 
 func (fr *sparseFileReaderAt) ReadAt(b []byte, off int64) (n int, err error) {

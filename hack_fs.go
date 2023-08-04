@@ -15,7 +15,7 @@ type hackfs struct {
 	folders map[string]*folder
 }
 
-func NewFS(r tar.SectionReader) (fs.FS, error) {
+func NewFS(r io.Reader) (fs.FS, error) {
 	tfs := hackfs{
 		files:   make(map[string]hackFile),
 		folders: make(map[string]*folder),
@@ -150,13 +150,9 @@ func (tfs *hackfs) addFoldersAndParents(dir string, de fs.DirEntry) {
 
 func (tfs hackfs) Open(name string) (fs.File, error) {
 	if f, ok := tfs.files[name]; ok {
-		n, err := size(f.SectionReader)
-		if err != nil {
-			return nil, err
-		}
 		return hackFile{
 			// make a new one, so that new Read ar at the start
-			SectionReader: io.NewSectionReader(f, 0, n),
+			SectionReader: io.NewSectionReader(f, 0, f.SectionReader.Size()),
 			FileInfo:      f.FileInfo,
 		}, nil
 	}
@@ -170,15 +166,8 @@ func (tfs hackfs) Open(name string) (fs.File, error) {
 	}, nil
 }
 
-func size(r tar.SectionReader) (int64, error) {
-	if s, ok := r.(interface{ Size() int64 }); ok {
-		return s.Size(), nil
-	}
-	return r.Seek(0, io.SeekCurrent)
-}
-
 type hackFile struct {
-	tar.SectionReader
+	*io.SectionReader
 	FileInfo fs.FileInfo
 }
 

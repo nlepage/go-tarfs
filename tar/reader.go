@@ -175,7 +175,7 @@ func (tr *Reader) handleRegularFile(hdr *Header) error {
 
 	// HACK: add offset to regFileReader
 	off := int64(-1)
-	if seeker, ok := tr.r.(SectionReader); ok {
+	if seeker, ok := tr.r.(io.Seeker); ok {
 		var err error
 		off, err = seeker.Seek(0, io.SeekCurrent)
 		if err != nil {
