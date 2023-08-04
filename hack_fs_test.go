@@ -22,6 +22,10 @@ func TestHackFS(t *testing.T) {
 
 func TestHackFSTarTestdata(t *testing.T) {
 	for archive, expected := range map[string][]string{
+		// TODO: fix following failing test
+		// sparse-posix-1.0: failed TestReader: ReadAll(small amounts)
+		// "sparse-formats.tar": {"end", "sparse-gnu", "sparse-posix-0.0", "sparse-posix-0.1", "sparse-posix-1.0"},
+
 		//*
 		"file-and-dir.tar":        {"dir", "small.txt"},
 		"gnu-long-nul.tar":        {"0123456789"},
@@ -54,13 +58,11 @@ func TestHackFSTarTestdata(t *testing.T) {
 		// slow (~ 45s)
 		// "gnu-incremental.tar": {"test2", "test2/foo", "test2/sparse"},
 
-		// killed (out of memory?
+		// killed (out of memory?)
 		// "gnu-sparse-big.tar": nil,
 		// "pax-sparse-big.tar": nil,
 
-		// sparse-posix-1.0: failed TestReader: ReadAll(small amounts)
-		// "sparse-formats.tar": {"end", "sparse-gnu", "sparse-posix-0.0", "sparse-posix-0.1", "sparse-posix-1.0"},
-
+		// Errors below are probably expected
 		// archive with no valid path name
 		// "gnu-not-utf8.tar": nil,
 
