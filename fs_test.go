@@ -125,6 +125,30 @@ func TestOpenThenReadAll(t *testing.T) {
 	}
 }
 
+func TestOpenThenSeekAfterEnd(t *testing.T) {
+	require := require.New(t)
+
+	f, err := os.Open("test.tar")
+	require.NoError(err)
+	defer f.Close()
+
+	tfs, err := New(f)
+	require.NoError(err)
+
+	r, err := tfs.Open("foo")
+	require.NoError(err, "when tarfs.Open(foo)")
+
+	rs := r.(io.ReadSeeker)
+
+	abs, err := rs.Seek(10, io.SeekStart)
+	require.NoError(err, "when ReadSeeker.Seek(10, io.SeekStart)")
+	require.Equal(int64(10), abs, "when ReadSeeker.Seek(10, io.SeekStart)")
+
+	b := make([]byte, 0, 1)
+	_, err = rs.Read(b)
+	require.ErrorIs(err, io.EOF, "when ReadSeeker.Read([]byte)")
+}
+
 func TestReadDir(t *testing.T) {
 	require, assert := require.New(t), assert.New(t)
 

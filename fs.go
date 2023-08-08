@@ -3,6 +3,7 @@ package tarfs
 import (
 	"archive/tar"
 	"bytes"
+	"errors"
 	"io"
 	"io/fs"
 	"path"
@@ -262,15 +263,14 @@ func (e *regEntry) readdir(path string) ([]fs.DirEntry, error) {
 }
 
 func (e *regEntry) readfile(path string) ([]byte, error) {
-	tr := tar.NewReader(io.NewSectionReader(e.ra, e.offset, 1<<63-1))
-
-	if _, err := tr.Next(); err != nil {
+	r, err := e.reader()
+	if err != nil {
 		return nil, err
 	}
 
 	b := bytes.NewBuffer(make([]byte, 0, e.size()))
 
-	if _, err := io.Copy(b, tr); err != nil {
+	if _, err := io.Copy(b, r); err != nil {
 		return nil, err
 	}
 
@@ -282,12 +282,22 @@ func (e *regEntry) entries(op, path string) ([]fs.DirEntry, error) {
 }
 
 func (e *regEntry) open() (fs.File, error) {
-	b, err := e.readfile("")
+	r, err := e.reader()
 	if err != nil {
 		return nil, err
 	}
 
-	return &file{e, bytes.NewReader(b), -1, false}, nil
+	return &file{e, &readSeeker{&readCounter{r, 0}, e}, -1, false}, nil
+}
+
+func (e *regEntry) reader() (io.Reader, error) {
+	tr := tar.NewReader(io.NewSectionReader(e.ra, e.offset, 1<<63-1))
+
+	if _, err := tr.Next(); err != nil {
+		return nil, err
+	}
+
+	return tr, nil
 }
 
 type dirEntry struct {
@@ -380,4 +390,47 @@ func (entries entriesByName) Len() int {
 
 func (entries entriesByName) Swap(i, j int) {
 	entries[i], entries[j] = entries[j], entries[i]
+}
+
+type readSeeker struct {
+	*readCounter
+	e *regEntry
+}
+
+var _ io.ReadSeeker = &readSeeker{}
+
+func (rs *readSeeker) Seek(offset int64, whence int) (int64, error) {
+	const op = "seek"
+
+	var abs int64
+	switch whence {
+	case io.SeekStart:
+		abs = offset
+	case io.SeekCurrent:
+		abs = rs.off + offset
+	case io.SeekEnd:
+		abs = rs.e.size() + offset
+	default:
+		return 0, newErr(op, rs.e.name, errors.New("invalid whence"))
+	}
+	if abs < 0 {
+		return 0, newErr(op, rs.e.name, errors.New("negative position"))
+	}
+
+	if abs < rs.off {
+		r, err := rs.e.reader()
+		if err != nil {
+			return 0, err
+		}
+
+		rs.readCounter = &readCounter{r, 0}
+	}
+
+	if abs > rs.off {
+		if _, err := io.CopyN(io.Discard, rs.readCounter, abs-rs.off); err != nil && err != io.EOF {
+			return 0, err
+		}
+	}
+
+	return abs, nil
 }
