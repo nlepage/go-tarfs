@@ -240,7 +240,7 @@ type entry interface {
 	readdir(path string) ([]fs.DirEntry, error)
 	readfile(path string) ([]byte, error)
 	entries(op, path string) ([]fs.DirEntry, error)
-	open() (*file, error)
+	open() (fs.File, error)
 }
 
 type regEntry struct {
@@ -281,7 +281,7 @@ func (e *regEntry) entries(op, path string) ([]fs.DirEntry, error) {
 	return nil, newErrNotDir(op, path)
 }
 
-func (e *regEntry) open() (*file, error) {
+func (e *regEntry) open() (fs.File, error) {
 	b, err := e.readfile("")
 	if err != nil {
 		return nil, err
@@ -334,7 +334,7 @@ func (e *dirEntry) entries(op, path string) ([]fs.DirEntry, error) {
 	return e._entries, nil
 }
 
-func (e *dirEntry) open() (*file, error) {
+func (e *dirEntry) open() (fs.File, error) {
 	return &file{e, nil, 0, false}, nil
 }
 
