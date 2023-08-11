@@ -291,7 +291,7 @@ func (e *regEntry) open() (fs.File, error) {
 }
 
 func (e *regEntry) reader() (io.Reader, error) {
-	tr := tar.NewReader(io.NewSectionReader(e.ra, e.offset, 1<<63-1))
+	tr := tar.NewReader(io.NewSectionReader(e.ra, e.offset, 1<<63-1-e.offset))
 
 	if _, err := tr.Next(); err != nil {
 		return nil, err
