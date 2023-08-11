@@ -3,13 +3,10 @@ package tarfs
 import (
 	"archive/tar"
 	"bytes"
-	"errors"
 	"io"
 	"io/fs"
 	"path"
-	"sort"
 	"strings"
-	"time"
 )
 
 const (
@@ -19,6 +16,8 @@ const (
 type tarfs struct {
 	entries map[string]fs.DirEntry
 }
+
+var _ fs.FS = &tarfs{}
 
 // New creates a new tar fs.FS from r
 func New(r io.Reader) (fs.FS, error) {
@@ -69,52 +68,6 @@ func New(r io.Reader) (fs.FS, error) {
 	return tfs, nil
 }
 
-type readReaderAt interface {
-	io.Reader
-	io.ReaderAt
-}
-
-type readCounterIface interface {
-	io.Reader
-	Count() int64
-}
-
-type readCounter struct {
-	io.Reader
-	off int64
-}
-
-func (cr *readCounter) Read(p []byte) (n int, err error) {
-	n, err = cr.Reader.Read(p)
-	cr.off += int64(n)
-	return
-}
-
-func (cr *readCounter) Count() int64 {
-	return cr.off
-}
-
-type readSeekCounter struct {
-	io.ReadSeeker
-	off int64
-}
-
-func (cr *readSeekCounter) Read(p []byte) (n int, err error) {
-	n, err = cr.ReadSeeker.Read(p)
-	cr.off += int64(n)
-	return
-}
-
-func (cr *readSeekCounter) Seek(offset int64, whence int) (abs int64, err error) {
-	abs, err = cr.ReadSeeker.Seek(offset, whence)
-	cr.off = abs
-	return
-}
-
-func (cr *readSeekCounter) Count() int64 {
-	return cr.off
-}
-
 func (tfs *tarfs) append(name string, e fs.DirEntry) {
 	tfs.entries[name] = e
 
@@ -132,8 +85,6 @@ func (tfs *tarfs) append(name string, e fs.DirEntry) {
 
 	parent.append(e)
 }
-
-var _ fs.FS = &tarfs{}
 
 func (tfs *tarfs) Open(name string) (fs.File, error) {
 	const op = "open"
@@ -233,204 +184,4 @@ func (tfs *tarfs) get(op, path string) (entry, error) {
 	}
 
 	return e.(entry), nil
-}
-
-type entry interface {
-	fs.DirEntry
-	size() int64
-	readdir(path string) ([]fs.DirEntry, error)
-	readfile(path string) ([]byte, error)
-	entries(op, path string) ([]fs.DirEntry, error)
-	open() (fs.File, error)
-}
-
-type regEntry struct {
-	fs.DirEntry
-	name   string
-	ra     io.ReaderAt
-	offset int64
-}
-
-var _ entry = &regEntry{}
-
-func (e *regEntry) size() int64 {
-	info, _ := e.Info() // err is necessarily nil
-	return info.Size()
-}
-
-func (e *regEntry) readdir(path string) ([]fs.DirEntry, error) {
-	return nil, newErrNotDir("readdir", path)
-}
-
-func (e *regEntry) readfile(path string) ([]byte, error) {
-	r, err := e.reader()
-	if err != nil {
-		return nil, err
-	}
-
-	b := bytes.NewBuffer(make([]byte, 0, e.size()))
-
-	if _, err := io.Copy(b, r); err != nil {
-		return nil, err
-	}
-
-	return b.Bytes(), nil
-}
-
-func (e *regEntry) entries(op, path string) ([]fs.DirEntry, error) {
-	return nil, newErrNotDir(op, path)
-}
-
-func (e *regEntry) open() (fs.File, error) {
-	r, err := e.reader()
-	if err != nil {
-		return nil, err
-	}
-
-	return &file{e, &readSeeker{&readCounter{r, 0}, e}, -1, false}, nil
-}
-
-func (e *regEntry) reader() (io.Reader, error) {
-	tr := tar.NewReader(io.NewSectionReader(e.ra, e.offset, 1<<63-1-e.offset))
-
-	if _, err := tr.Next(); err != nil {
-		return nil, err
-	}
-
-	return tr, nil
-}
-
-type dirEntry struct {
-	fs.DirEntry
-	_entries []fs.DirEntry
-	sorted   bool
-}
-
-func newDirEntry(e fs.DirEntry) *dirEntry {
-	return &dirEntry{e, make([]fs.DirEntry, 0, 10), false}
-}
-
-func (e *dirEntry) append(c fs.DirEntry) {
-	e._entries = append(e._entries, c)
-}
-
-var _ entry = &dirEntry{}
-
-func (e *dirEntry) size() int64 {
-	return 0
-}
-
-func (e *dirEntry) readdir(path string) ([]fs.DirEntry, error) {
-	if !e.sorted {
-		sort.Sort(entriesByName(e._entries))
-	}
-
-	entries := make([]fs.DirEntry, len(e._entries))
-
-	copy(entries, e._entries)
-
-	return entries, nil
-}
-
-func (e *dirEntry) readfile(path string) ([]byte, error) {
-	return nil, newErrDir("readfile", path)
-}
-
-func (e *dirEntry) entries(op, path string) ([]fs.DirEntry, error) {
-	if !e.sorted {
-		sort.Sort(entriesByName(e._entries))
-	}
-
-	return e._entries, nil
-}
-
-func (e *dirEntry) open() (fs.File, error) {
-	return &file{e, nil, 0, false}, nil
-}
-
-type fakeDirFileInfo string
-
-var _ fs.FileInfo = fakeDirFileInfo("")
-
-func (e fakeDirFileInfo) Name() string {
-	return string(e)
-}
-
-func (fakeDirFileInfo) Size() int64 {
-	return 0
-}
-
-func (fakeDirFileInfo) Mode() fs.FileMode {
-	return fs.ModeDir
-}
-
-func (fakeDirFileInfo) ModTime() time.Time {
-	return time.Time{}
-}
-
-func (fakeDirFileInfo) IsDir() bool {
-	return true
-}
-
-func (fakeDirFileInfo) Sys() interface{} {
-	return nil
-}
-
-type entriesByName []fs.DirEntry
-
-var _ sort.Interface = entriesByName{}
-
-func (entries entriesByName) Less(i, j int) bool {
-	return entries[i].Name() < entries[j].Name()
-}
-
-func (entries entriesByName) Len() int {
-	return len(entries)
-}
-
-func (entries entriesByName) Swap(i, j int) {
-	entries[i], entries[j] = entries[j], entries[i]
-}
-
-type readSeeker struct {
-	*readCounter
-	e *regEntry
-}
-
-var _ io.ReadSeeker = &readSeeker{}
-
-func (rs *readSeeker) Seek(offset int64, whence int) (int64, error) {
-	const op = "seek"
-
-	var abs int64
-	switch whence {
-	case io.SeekStart:
-		abs = offset
-	case io.SeekCurrent:
-		abs = rs.off + offset
-	case io.SeekEnd:
-		abs = rs.e.size() + offset
-	default:
-		return 0, newErr(op, rs.e.name, errors.New("invalid whence"))
-	}
-	if abs < 0 {
-		return 0, newErr(op, rs.e.name, errors.New("negative position"))
-	}
-
-	if abs < rs.off {
-		r, err := rs.e.reader()
-		if err != nil {
-			return 0, err
-		}
-
-		rs.readCounter = &readCounter{r, 0}
-	}
-
-	if abs > rs.off {
-		if _, err := io.CopyN(io.Discard, rs.readCounter, abs-rs.off); err != nil && err != io.EOF {
-			return 0, err
-		}
-	}
-
-	return abs, nil
 }
