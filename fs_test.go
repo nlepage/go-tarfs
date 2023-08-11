@@ -1,6 +1,7 @@
 package tarfs
 
 import (
+	"io"
 	"io/fs"
 	"os"
 	"testing"
@@ -92,6 +93,62 @@ func TestOpenThenStat(t *testing.T) {
 	}
 }
 
+func TestOpenThenReadAll(t *testing.T) {
+	require, assert := require.New(t), assert.New(t)
+
+	f, err := os.Open("test.tar")
+	require.NoError(err)
+	defer f.Close()
+
+	tfs, err := New(f)
+	require.NoError(err)
+
+	for _, file := range []struct {
+		path    string
+		content []byte
+	}{
+		{"foo", []byte("foo")},
+		{"bar", []byte("bar")},
+		{"dir1/file11", []byte("file11")},
+	} {
+		f, err := tfs.Open(file.path)
+		if !assert.NoErrorf(err, "when tarfs.Open(%#v)", file.path) {
+			continue
+		}
+
+		content, err := io.ReadAll(f)
+		if !assert.NoErrorf(err, "when io.ReadAll(file{%#v})", file.path) {
+			continue
+		}
+
+		assert.Equalf(file.content, content, "content of %#v", file.path)
+	}
+}
+
+func TestOpenThenSeekAfterEnd(t *testing.T) {
+	require := require.New(t)
+
+	f, err := os.Open("test.tar")
+	require.NoError(err)
+	defer f.Close()
+
+	tfs, err := New(f)
+	require.NoError(err)
+
+	r, err := tfs.Open("foo")
+	require.NoError(err, "when tarfs.Open(foo)")
+
+	rs := r.(io.ReadSeeker)
+
+	abs, err := rs.Seek(10, io.SeekStart)
+	require.NoError(err, "when ReadSeeker.Seek(10, io.SeekStart)")
+	require.Equal(int64(10), abs, "when ReadSeeker.Seek(10, io.SeekStart)")
+
+	b := make([]byte, 0, 1)
+	_, err = rs.Read(b)
+	require.ErrorIs(err, io.EOF, "when ReadSeeker.Read([]byte)")
+}
+
 func TestReadDir(t *testing.T) {
 	require, assert := require.New(t), assert.New(t)
 
@@ -136,8 +193,7 @@ func TestReadDirNotDir(t *testing.T) {
 }
 
 func TestReadFile(t *testing.T) {
-	require := require.New(t)
-	assert := assert.New(t)
+	require, assert := require.New(t), assert.New(t)
 
 	f, err := os.Open("test.tar")
 	require.NoError(err)
@@ -146,23 +202,29 @@ func TestReadFile(t *testing.T) {
 	tfs, err := New(f)
 	require.NoError(err)
 
-	for name, content := range map[string]string{
-		"dir1/dir11/file111": "file111",
-		"dir2/dir21/file212": "file212",
-		"foo":                "foo",
+	for _, file := range []struct {
+		path    string
+		content string
+	}{
+		{"bar", "bar"},
+		{"dir1/dir11/file111", "file111"},
+		{"dir1/file11", "file11"},
+		{"dir1/file12", "file12"},
+		{"dir2/dir21/file211", "file211"},
+		{"dir2/dir21/file212", "file212"},
+		{"foo", "foo"},
 	} {
-		b, err := fs.ReadFile(tfs, name)
-		if !assert.NoErrorf(err, "when fs.ReadFile(tfs, %#v)", name) {
+		b, err := fs.ReadFile(tfs, file.path)
+		if !assert.NoErrorf(err, "when fs.ReadFile(tfs, %#v)", file.path) {
 			continue
 		}
 
-		assert.Equalf(content, string(b), "in %#v", name)
+		assert.Equalf(file.content, string(b), "in %#v", file.path)
 	}
 }
 
 func TestStat(t *testing.T) {
-	require := require.New(t)
-	assert := assert.New(t)
+	require, assert := require.New(t), assert.New(t)
 
 	f, err := os.Open("test.tar")
 	require.NoError(err)
@@ -193,8 +255,7 @@ func TestStat(t *testing.T) {
 }
 
 func TestGlob(t *testing.T) {
-	require := require.New(t)
-	assert := assert.New(t)
+	require, assert := require.New(t), assert.New(t)
 
 	f, err := os.Open("test.tar")
 	require.NoError(err)
@@ -205,7 +266,7 @@ func TestGlob(t *testing.T) {
 
 	for pattern, expected := range map[string][]string{
 		"*/*2*":   {"dir1/file12", "dir2/dir21"},
-		"*":       {"bar", "dir1", "dir2", "foo"},
+		"*":       {"bar", "dir1", "dir2", "foo", "."},
 		"*/*/*":   {"dir1/dir11/file111", "dir2/dir21/file211", "dir2/dir21/file212"},
 		"*/*/*/*": nil,
 	} {
@@ -219,8 +280,7 @@ func TestGlob(t *testing.T) {
 }
 
 func TestSubThenReadDir(t *testing.T) {
-	require := require.New(t)
-	assert := assert.New(t)
+	require, assert := require.New(t), assert.New(t)
 
 	f, err := os.Open("test.tar")
 	require.NoError(err)
@@ -276,8 +336,7 @@ func TestSubThenReadFile(t *testing.T) {
 }
 
 func TestReadOnDir(t *testing.T) {
-	require := require.New(t)
-	assert := assert.New(t)
+	require, assert := require.New(t), assert.New(t)
 
 	tf, err := os.Open("test.tar")
 	require.NoError(err)
@@ -302,70 +361,55 @@ func TestReadOnDir(t *testing.T) {
 	}
 }
 
-func TestWalkDir_WithDotDirInArchive(t *testing.T) {
+func TestWithDotDirInArchive(t *testing.T) {
 	require := require.New(t)
 
-	tf, err := os.Open("test-with-dot-dir.tar")
+	f, err := os.Open("test-with-dot-dir.tar")
 	require.NoError(err)
-	defer tf.Close()
+	defer f.Close()
 
-	tfs, err := New(tf)
-	require.NoError(err)
-
-	paths := make([]string, 0, 12)
-
-	err = fs.WalkDir(tfs, ".", func(path string, d fs.DirEntry, err error) error {
-		paths = append(paths, path)
-		return nil
-	})
+	tfs, err := New(f)
 	require.NoError(err)
 
-	require.ElementsMatch([]string{
-		".",
-		"bar",
-		"foo",
-		"dir1",
-		"dir1/dir11",
-		"dir1/dir11/file111",
-		"dir1/file11",
-		"dir1/file12",
-		"dir2",
-		"dir2/dir21",
-		"dir2/dir21/file211",
-		"dir2/dir21/file212",
-	}, paths)
+	err = fstest.TestFS(tfs, "bar", "foo", "dir1", "dir1/dir11", "dir1/dir11/file111", "dir1/file11", "dir1/file12", "dir2", "dir2/dir21", "dir2/dir21/file211", "dir2/dir21/file212")
+	require.NoError(err)
 }
 
-func TestWalkDir_WithNoDirEntriesInArchive(t *testing.T) {
+func TestWithNoDirEntriesInArchive(t *testing.T) {
 	require := require.New(t)
 
-	tf, err := os.Open("test-no-directory-entries.tar")
+	f, err := os.Open("test-no-directory-entries.tar")
 	require.NoError(err)
-	defer tf.Close()
+	defer f.Close()
 
-	tfs, err := New(tf)
-	require.NoError(err)
-
-	paths := make([]string, 0, 12)
-
-	err = fs.WalkDir(tfs, ".", func(path string, d fs.DirEntry, err error) error {
-		paths = append(paths, path)
-		return nil
-	})
+	tfs, err := New(f)
 	require.NoError(err)
 
-	require.ElementsMatch([]string{
-		".",
-		"bar",
-		"foo",
-		"dir1",
-		"dir1/dir11",
-		"dir1/dir11/file111",
-		"dir1/file11",
-		"dir1/file12",
-		"dir2",
-		"dir2/dir21",
-		"dir2/dir21/file211",
-		"dir2/dir21/file212",
-	}, paths)
+	err = fstest.TestFS(tfs, "bar", "foo", "dir1", "dir1/dir11", "dir1/dir11/file111", "dir1/file11", "dir1/file12", "dir2", "dir2/dir21", "dir2/dir21/file211", "dir2/dir21/file212")
+	require.NoError(err)
+}
+
+func TestSparse(t *testing.T) {
+	require, assert := require.New(t), assert.New(t)
+
+	f, err := os.Open("test-sparse.tar")
+	require.NoError(err)
+	defer f.Close()
+
+	tfs, err := New(f)
+	require.NoError(err)
+
+	err = fstest.TestFS(tfs, "file1", "file2")
+	assert.NoError(err)
+
+	if file1Actual, err := fs.ReadFile(tfs, "file1"); assert.NoError(err, "fs.ReadFile(tfs, \"file1\")") {
+		file1Expected := make([]byte, 1000000)
+		copy(file1Expected, []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1})
+		copy(file1Expected[999990:], []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1})
+		assert.Equal(file1Expected, file1Actual, "fs.ReadFile(tfs, \"file1\")")
+	}
+
+	if file2Actual, err := fs.ReadFile(tfs, "file2"); assert.NoError(err, "fs.ReadFile(tfs, \"file2\")") {
+		assert.Equal([]byte("file2"), file2Actual, "fs.ReadFile(tfs, \"file2\")")
+	}
 }

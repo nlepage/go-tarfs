@@ -9,7 +9,7 @@
 
 ## Usage
 
-⚠️ go-tarfs needs go>=1.16
+⚠️ go-tarfs needs go>=1.17
 
 Install:
 ```sh

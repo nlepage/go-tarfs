@@ -6,21 +6,41 @@ import (
 	"io"
 	"io/fs"
 	"path"
-	"sort"
 	"strings"
-	"time"
+)
+
+const (
+	blockSize = 512 // Size of each block in a tar stream
 )
 
 type tarfs struct {
-	entries     map[string]fs.DirEntry
-	rootEntries []fs.DirEntry
-	rootEntry   fs.DirEntry
+	entries map[string]fs.DirEntry
 }
+
+var _ fs.FS = &tarfs{}
 
 // New creates a new tar fs.FS from r
 func New(r io.Reader) (fs.FS, error) {
-	tr := tar.NewReader(r)
-	tfs := &tarfs{make(map[string]fs.DirEntry), make([]fs.DirEntry, 0, 10), nil}
+	tfs := &tarfs{make(map[string]fs.DirEntry)}
+	tfs.entries["."] = newDirEntry(fs.FileInfoToDirEntry(fakeDirFileInfo(".")))
+
+	ra, isReaderAt := r.(readReaderAt)
+	if !isReaderAt {
+		buf, err := io.ReadAll(r)
+		if err != nil {
+			return nil, err
+		}
+		ra = bytes.NewReader(buf)
+	}
+
+	var cr readCounterIface
+	if rs, isReadSeeker := ra.(io.ReadSeeker); isReadSeeker {
+		cr = &readSeekCounter{ReadSeeker: rs}
+	} else {
+		cr = &readCounter{Reader: ra}
+	}
+
+	tr := tar.NewReader(cr)
 
 	for {
 		h, err := tr.Next()
@@ -36,14 +56,13 @@ func New(r io.Reader) (fs.FS, error) {
 			continue
 		}
 
-		buf := bytes.NewBuffer(make([]byte, 0, int(h.Size)))
-		if _, err := io.Copy(buf, tr); err != nil {
-			return nil, err
+		de := fs.FileInfoToDirEntry(h.FileInfo())
+
+		if h.FileInfo().IsDir() {
+			tfs.append(name, newDirEntry(de))
+		} else {
+			tfs.append(name, &regEntry{de, name, ra, cr.Count() - blockSize})
 		}
-
-		e := &entry{h, buf.Bytes(), nil}
-
-		tfs.append(name, e)
 	}
 
 	return tfs, nil
@@ -54,104 +73,61 @@ func (tfs *tarfs) append(name string, e fs.DirEntry) {
 
 	dir := path.Dir(name)
 
-	if dir == "." {
-		tfs.rootEntries = append(tfs.rootEntries, e)
-		return
-	}
-
 	if parent, ok := tfs.entries[dir]; ok {
-		parent := parent.(entries)
+		parent := parent.(*dirEntry)
 		parent.append(e)
 		return
 	}
 
-	parent := &fakeDirEntry{path.Base(dir), nil}
+	parent := newDirEntry(fs.FileInfoToDirEntry(fakeDirFileInfo(path.Base(dir))))
 
 	tfs.append(dir, parent)
 
 	parent.append(e)
 }
 
-var _ fs.FS = &tarfs{}
-
 func (tfs *tarfs) Open(name string) (fs.File, error) {
-	if name == "." {
-		if tfs.rootEntry == nil {
-			return &rootFile{tfs: tfs}, nil
-		}
-		return newFile(tfs.rootEntry), nil
-	}
+	const op = "open"
 
-	e, err := tfs.get(name, "open")
+	e, err := tfs.get(op, name)
 	if err != nil {
 		return nil, err
 	}
 
-	return newFile(e), nil
+	return e.open()
 }
 
 var _ fs.ReadDirFS = &tarfs{}
 
 func (tfs *tarfs) ReadDir(name string) ([]fs.DirEntry, error) {
-	if name == "." {
-		return tfs.rootEntries, nil
-	}
-
-	e, err := tfs.get(name, "readdir")
+	e, err := tfs.get("readdir", name)
 	if err != nil {
 		return nil, err
 	}
 
-	if !e.IsDir() {
-		return nil, newErrNotDir("readdir", name)
-	}
-
-	entries := e.(entries).get()
-
-	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
-
-	return entries, nil
+	return e.readdir(name)
 }
 
 var _ fs.ReadFileFS = &tarfs{}
 
 func (tfs *tarfs) ReadFile(name string) ([]byte, error) {
-	if name == "." {
-		return nil, newErrDir("readfile", name)
-	}
-
-	e, err := tfs.get(name, "readfile")
+	e, err := tfs.get("readfile", name)
 	if err != nil {
 		return nil, err
 	}
 
-	if e.IsDir() {
-		return nil, newErrDir("readfile", name)
-	}
-
-	ee := e.(*entry)
-
-	buf := make([]byte, len(ee.b))
-	copy(buf, ee.b)
-	return buf, nil
+	return e.readfile(name)
 }
 
 var _ fs.StatFS = &tarfs{}
 
 func (tfs *tarfs) Stat(name string) (fs.FileInfo, error) {
-	if name == "." {
-		if tfs.rootEntry == nil {
-			return &rootFile{tfs: tfs}, nil
-		}
-		return tfs.rootEntry.Info()
-	}
-
-	e, err := tfs.get(name, "stat")
+	e, err := tfs.get("stat", name)
 	if err != nil {
 		return nil, err
 	}
 
-	return e.(fileInfo).FileInfo()
+	return e.Info()
 }
 
 var _ fs.GlobFS = &tarfs{}
@@ -172,20 +148,21 @@ func (tfs *tarfs) Glob(pattern string) (matches []string, _ error) {
 var _ fs.SubFS = &tarfs{}
 
 func (tfs *tarfs) Sub(dir string) (fs.FS, error) {
+	const op = "sub"
+
 	if dir == "." {
 		return tfs, nil
 	}
 
-	e, err := tfs.get(dir, "sub")
+	e, err := tfs.get(op, dir)
 	if err != nil {
 		return nil, err
 	}
 
-	if !e.IsDir() {
-		return nil, newErrNotDir("sub", dir)
-	}
+	subfs := &tarfs{make(map[string]fs.DirEntry)}
 
-	subfs := &tarfs{make(map[string]fs.DirEntry), e.(entries).get(), e}
+	subfs.entries["."] = e
+
 	prefix := dir + "/"
 	for name, file := range tfs.entries {
 		if strings.HasPrefix(name, prefix) {
@@ -196,121 +173,15 @@ func (tfs *tarfs) Sub(dir string) (fs.FS, error) {
 	return subfs, nil
 }
 
-func (tfs *tarfs) get(name, op string) (fs.DirEntry, error) {
-	if !fs.ValidPath(name) {
-		return nil, &fs.PathError{Op: op, Path: name, Err: fs.ErrInvalid}
+func (tfs *tarfs) get(op, path string) (entry, error) {
+	if !fs.ValidPath(path) {
+		return nil, newErr(op, path, fs.ErrInvalid)
 	}
 
-	e, ok := tfs.entries[name]
+	e, ok := tfs.entries[path]
 	if !ok {
-		return nil, &fs.PathError{Op: op, Path: name, Err: fs.ErrNotExist}
+		return nil, newErrNotExist(op, path)
 	}
 
-	return e, nil
-}
-
-type entries interface {
-	append(fs.DirEntry)
-	get() []fs.DirEntry
-}
-
-type fileInfo interface {
-	FileInfo() (fs.FileInfo, error)
-}
-
-type entry struct {
-	h       *tar.Header
-	b       []byte
-	entries []fs.DirEntry
-}
-
-var _ fs.DirEntry = &entry{}
-
-func (e *entry) Name() string {
-	return e.h.FileInfo().Name()
-}
-
-func (e *entry) IsDir() bool {
-	return e.h.FileInfo().IsDir()
-}
-
-func (e *entry) Type() fs.FileMode {
-	return e.h.FileInfo().Mode() & fs.ModeType
-}
-
-func (e *entry) Info() (fs.FileInfo, error) {
-	return e.h.FileInfo(), nil
-}
-
-var _ entries = &entry{}
-
-func (e *entry) append(c fs.DirEntry) {
-	e.entries = append(e.entries, c)
-}
-
-func (e *entry) get() []fs.DirEntry {
-	return e.entries
-}
-
-var _ fileInfo = &entry{}
-
-func (e *entry) FileInfo() (fs.FileInfo, error) {
-	return e.h.FileInfo(), nil
-}
-
-type fakeDirEntry struct {
-	name    string
-	entries []fs.DirEntry
-}
-
-var _ fs.DirEntry = &fakeDirEntry{}
-
-func (e *fakeDirEntry) Name() string {
-	return e.name
-}
-
-func (*fakeDirEntry) IsDir() bool {
-	return true
-}
-
-func (*fakeDirEntry) Type() fs.FileMode {
-	return fs.ModeDir
-}
-
-func (e *fakeDirEntry) Info() (fs.FileInfo, error) {
-	return e, nil
-}
-
-var _ fs.FileInfo = &fakeDirEntry{}
-
-func (*fakeDirEntry) Mode() fs.FileMode {
-	return fs.ModeDir
-}
-
-func (*fakeDirEntry) Size() int64 {
-	return 0
-}
-
-func (*fakeDirEntry) ModTime() time.Time {
-	return time.Time{}
-}
-
-func (*fakeDirEntry) Sys() interface{} {
-	return nil
-}
-
-var _ entries = &fakeDirEntry{}
-
-func (e *fakeDirEntry) append(c fs.DirEntry) {
-	e.entries = append(e.entries, c)
-}
-
-func (e *fakeDirEntry) get() []fs.DirEntry {
-	return e.entries
-}
-
-var _ fileInfo = &fakeDirEntry{}
-
-func (e *fakeDirEntry) FileInfo() (fs.FileInfo, error) {
-	return e, nil
+	return e.(entry), nil
 }
