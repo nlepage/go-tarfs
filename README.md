@@ -71,7 +71,7 @@ Give a ⭐️ if this project helped you!
 ## Contributors ✨
 
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-4-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-5-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
@@ -85,6 +85,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://blog.cugu.eu/"><img src="https://avatars.githubusercontent.com/u/653777?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Jonas Plum</b></sub></a><br /><a href="https://github.com/nlepage/go-tarfs/commits?author=cugu" title="Tests">⚠️</a> <a href="https://github.com/nlepage/go-tarfs/commits?author=cugu" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/ix64"><img src="https://avatars.githubusercontent.com/u/13902388?v=4?s=100" width="100px;" alt=""/><br /><sub><b>MengYX</b></sub></a><br /><a href="https://github.com/nlepage/go-tarfs/issues?q=author%3Aix64" title="Bug reports">🐛</a> <a href="https://github.com/nlepage/go-tarfs/commits?author=ix64" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/adyatlov"><img src="https://avatars.githubusercontent.com/u/1386270?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Andrey Dyatlov</b></sub></a><br /><a href="https://github.com/nlepage/go-tarfs/issues?q=author%3Aadyatlov" title="Bug reports">🐛</a> <a href="https://github.com/nlepage/go-tarfs/commits?author=adyatlov" title="Code">💻</a> <a href="https://github.com/nlepage/go-tarfs/commits?author=adyatlov" title="Tests">⚠️</a></td>
+    <td align="center"><a href="https://github.com/joelanford"><img src="https://avatars.githubusercontent.com/u/580047?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Joe Lanford</b></sub></a><br /><a href="https://github.com/nlepage/go-tarfs/commits?author=joelanford" title="Code">💻</a> <a href="https://github.com/nlepage/go-tarfs/pulls?q=is%3Apr+reviewed-by%3Ajoelanford" title="Reviewed Pull Requests">👀</a></td>
   </tr>
 </table>
 
