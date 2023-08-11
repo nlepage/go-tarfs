@@ -19,7 +19,10 @@ type tarfs struct {
 
 var _ fs.FS = &tarfs{}
 
-// New creates a new tar fs.FS from r
+// New creates a new tar fs.FS from r.
+// If r implements io.ReaderAt:
+// - files content are not stored in memory
+// - r must stay opened while using the fs.FS
 func New(r io.Reader) (fs.FS, error) {
 	tfs := &tarfs{make(map[string]fs.DirEntry)}
 	tfs.entries["."] = newDirEntry(fs.FileInfoToDirEntry(fakeDirFileInfo(".")))

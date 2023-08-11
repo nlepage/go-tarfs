@@ -45,7 +45,7 @@ func (f *file) Close() error {
 		return newErrClosed(op, f.Name())
 	}
 
-	f.r = nil // FIXME update documentation, this is no more a noop
+	f.r = nil
 	f.closed = true
 
 	return nil

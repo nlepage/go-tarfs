@@ -12,11 +12,13 @@
 ⚠️ go-tarfs needs go>=1.17
 
 Install:
+
 ```sh
 go get github.com/nlepage/go-tarfs
 ```
 
 Use:
+
 ```go
 package main
 
@@ -42,15 +44,23 @@ func main() {
     if err != nil {
         panic(err)
     }
-    // defer f.Close() isn't necessary, it is a noop
-    
+    defer f.Close() // frees the associated reader
+
     // use f...
 }
 ```
 
 More information at [pkg.go.dev/github.com/nlepage/go-tarfs](https://pkg.go.dev/github.com/nlepage/go-tarfs#section-documentation)
 
-## Caveats
+### Long living `fs.FS`
+
+The `io.Reader` given to `tarfs.New` must stay opened while using the returned `fs.FS` (this is true only if the `io.Reader` implements `io.ReaderAt`).
+
+### Memory usage
+
+Since [v1.2.0](https://github.com/nlepage/go-tarfs/releases/tag/v1.2.0) files content are not stored in memory anymore if the `io.Reader` given to `tarfs.New` implements `io.ReaderAt`.
+
+### Symbolic links
 
 For now, no effort is done to support symbolic links.
 
