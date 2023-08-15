@@ -413,3 +413,19 @@ func TestSparse(t *testing.T) {
 		assert.Equal([]byte("file2"), file2Actual, "fs.ReadFile(tfs, \"file2\")")
 	}
 }
+
+func TestIgnoreGlobalHeader(t *testing.T) {
+	require := require.New(t)
+
+	// This file was created by initializing a git repository,
+	// committing a few files, and running: `git archive HEAD`
+	f, err := os.Open("test-with-global-header.tar")
+	require.NoError(err)
+	defer f.Close()
+
+	tfs, err := New(f)
+	require.NoError(err)
+
+	err = fstest.TestFS(tfs, "bar", "dir1", "dir1/file11")
+	require.NoError(err)
+}
