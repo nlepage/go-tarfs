@@ -53,6 +53,9 @@ func New(r io.Reader) (fs.FS, error) {
 		if err != nil {
 			return nil, err
 		}
+		if h.Typeflag == tar.TypeXGlobalHeader {
+			continue
+		}
 
 		name := path.Clean(h.Name)
 		if name == "." {
