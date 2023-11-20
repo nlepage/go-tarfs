@@ -4,6 +4,8 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"testing/fstest"
 
@@ -428,4 +430,46 @@ func TestIgnoreGlobalHeader(t *testing.T) {
 
 	err = fstest.TestFS(tfs, "bar", "dir1", "dir1/file11")
 	require.NoError(err)
+}
+
+func TestVariousTarTypes(t *testing.T) {
+	assert := assert.New(t)
+
+	for _, file := range []struct {
+		path      string
+		expecteds []string
+	}{
+		{"file-and-dir.tar", []string{"small.txt"}},
+		{"gnu.tar", []string{"small.txt", "small2.txt"}},
+		// {"gnu-incremental.tar", []string{"test2/foo", "test2/sparse"}},
+		{"gnu-long-nul.tar", []string{"0123456789"}},
+		{"gnu-multi-hdrs.tar", []string{"GNU2/GNU2/long-path-name"}},
+		{"gnu-nil-sparse-data.tar", []string{"sparse.db"}},
+		{"gnu-nil-sparse-hole.tar", []string{"sparse.db"}},
+		{"gnu-not-utf8.tar", []string{"hi\200\201\202\203bye"}},
+		// gnu-sparse-big.tar: too big
+		{"gnu-utf8.tar", []string{"☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹☺☻☹"}},
+		{"hardlink.tar", []string{"file.txt", "hard.txt"}},
+		// {"hdr-only.tar", []string{"file"}},
+	} {
+		func() {
+			f, err := os.Open(filepath.Join(runtime.GOROOT(), "src/archive/tar/testdata", file.path))
+			if !assert.NoError(err) {
+				return
+			}
+			defer f.Close()
+
+			tfs, err := New(f)
+			if !assert.NoError(err) {
+				return
+			}
+			assert.NoError(err)
+
+			err = fstest.TestFS(tfs, file.expecteds...)
+			if !assert.NoError(err) {
+				return
+			}
+			assert.NoError(err)
+		}()
+	}
 }
