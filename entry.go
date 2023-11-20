@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/fs"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -155,7 +156,7 @@ type entriesByName []fs.DirEntry
 var _ sort.Interface = entriesByName{}
 
 func (entries entriesByName) Less(i, j int) bool {
-	return entries[i].Name() < entries[j].Name()
+	return strings.Compare(entries[i].Name(), entries[j].Name()) < 0
 }
 
 func (entries entriesByName) Len() int {

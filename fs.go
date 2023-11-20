@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"path"
 	"strings"
+	"unicode/utf8"
 )
 
 const (
@@ -180,7 +181,7 @@ func (tfs *tarfs) Sub(dir string) (fs.FS, error) {
 }
 
 func (tfs *tarfs) get(op, path string) (entry, error) {
-	if !fs.ValidPath(path) {
+	if !fs.ValidPath(path) && utf8.ValidString(path) {
 		return nil, newErr(op, path, fs.ErrInvalid)
 	}
 
