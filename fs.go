@@ -9,10 +9,6 @@ import (
 	"strings"
 )
 
-const (
-	blockSize = 512 // Size of each block in a tar stream
-)
-
 type tarfs struct {
 	entries map[string]fs.DirEntry
 }
@@ -45,6 +41,10 @@ func New(r io.Reader) (fs.FS, error) {
 
 	tr := tar.NewReader(cr)
 
+	var (
+		bodyEnd, headerStart, headerEnd int64
+		blk                             block
+	)
 	for {
 		h, err := tr.Next()
 		if err == io.EOF {
@@ -53,22 +53,42 @@ func New(r io.Reader) (fs.FS, error) {
 		if err != nil {
 			return nil, err
 		}
-		if h.Typeflag == tar.TypeXGlobalHeader {
-			continue
-		}
 
-		name := path.Clean(h.Name)
-		if name == "." {
-			continue
+		headerEnd = cr.Count()
+
+		holes, _ := reconstructSparse(io.NewSectionReader(ra, headerStart, headerEnd-headerStart), h, &blk)
+
+		switch h.Typeflag {
+		case tar.TypeLink, tar.TypeSymlink, tar.TypeChar, tar.TypeBlock, tar.TypeDir, tar.TypeFifo,
+			tar.TypeCont, tar.TypeXHeader, tar.TypeXGlobalHeader,
+			tar.TypeGNULongName, tar.TypeGNULongLink:
+			// They have size for name.
+			bodyEnd = headerEnd
+		default:
+			// In testdata tars there's typeflag value not defined in archive/tar
+			// nor in https://www.gnu.org/software/tar/manual/html_node/Standard.html
+			bodyEnd = headerEnd + h.Size
+			if holes != nil {
+				// reverse-caluculating size
+				var holeSize int64
+				for _, hole := range holes {
+					holeSize += hole.Length
+				}
+				bodyEnd -= holeSize
+			}
 		}
 
 		de := fs.FileInfoToDirEntry(h.FileInfo())
-
-		if h.FileInfo().IsDir() {
-			tfs.append(name, newDirEntry(de))
-		} else {
-			tfs.append(name, &regEntry{de, name, ra, cr.Count() - blockSize})
+		name := path.Clean(h.Name)
+		if h.Typeflag != tar.TypeXGlobalHeader && name != "." {
+			if h.FileInfo().IsDir() {
+				tfs.append(name, newDirEntry(de))
+			} else {
+				tfs.append(name, &regEntry{de, name, ra, headerStart})
+			}
 		}
+
+		headerStart = bodyEnd + ((-bodyEnd) & (blockSize - 1))
 	}
 
 	return tfs, nil
