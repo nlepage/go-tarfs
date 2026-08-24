@@ -21,7 +21,7 @@ func TestFS(t *testing.T) {
 	tfs, err := New(f)
 	require.NoError(err)
 
-	err = fstest.TestFS(tfs, "bar", "foo", "dir1", "dir1/dir11", "dir1/dir11/file111", "dir1/file11", "dir1/file12", "dir2", "dir2/dir21", "dir2/dir21/file211", "dir2/dir21/file212")
+	err = fstest.TestFS(tfs, "bar", "foo", "dir1", "dir1/dir11", "dir1/dir11/file111", "dir1/file11", "dir1/file12", "dir2", "dir2/dir21", "dir2/dir21/file211", "dir2/dir21/file212", "link211")
 	require.NoError(err)
 }
 
@@ -76,6 +76,7 @@ func TestOpenThenStat(t *testing.T) {
 		{"bar", "bar", false},
 		{"dir1", "dir1", true},
 		{"dir1/file11", "file11", false},
+		{"link211", "link211", false},
 		{".", ".", true},
 	} {
 		f, err := tfs.Open(file.path)
@@ -163,7 +164,7 @@ func TestReadDir(t *testing.T) {
 		name       string
 		entriesLen int
 	}{
-		{".", 4},
+		{".", 5},
 		{"dir1", 3},
 		{"dir2/dir21", 2},
 	} {
@@ -213,6 +214,7 @@ func TestReadFile(t *testing.T) {
 		{"dir2/dir21/file211", "file211"},
 		{"dir2/dir21/file212", "file212"},
 		{"foo", "foo"},
+		{"link211", "file211"},
 	} {
 		b, err := fs.ReadFile(tfs, file.path)
 		if !assert.NoErrorf(err, "when fs.ReadFile(tfs, %#v)", file.path) {
@@ -242,6 +244,7 @@ func TestStat(t *testing.T) {
 		{"foo", "foo", false},
 		{"dir2/dir21", "dir21", true},
 		{".", ".", true},
+		// {"link211", "link211", false},
 	} {
 		fi, err := fs.Stat(tfs, file.path)
 		if !assert.NoErrorf(err, "when fs.Stat(tfs, %#v)", file.path) {
@@ -266,7 +269,7 @@ func TestGlob(t *testing.T) {
 
 	for pattern, expected := range map[string][]string{
 		"*/*2*":   {"dir1/file12", "dir2/dir21"},
-		"*":       {"bar", "dir1", "dir2", "foo", "."},
+		"*":       {"bar", "dir1", "dir2", "foo", "link211", "."},
 		"*/*/*":   {"dir1/dir11/file111", "dir2/dir21/file211", "dir2/dir21/file212"},
 		"*/*/*/*": nil,
 	} {
@@ -293,7 +296,7 @@ func TestSubThenReadDir(t *testing.T) {
 		name       string
 		entriesLen int
 	}{
-		{".", 4},
+		{".", 5},
 		{"dir1", 3},
 		{"dir2/dir21", 2},
 	} {
