@@ -146,7 +146,7 @@ func (fakeDirFileInfo) IsDir() bool {
 	return true
 }
 
-func (fakeDirFileInfo) Sys() interface{} {
+func (fakeDirFileInfo) Sys() any {
 	return nil
 }
 

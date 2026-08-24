@@ -9,7 +9,7 @@
 
 ## Usage
 
-⚠️ go-tarfs needs go>=1.17
+⚠️ go-tarfs needs go>=1.21
 
 Install:
 
