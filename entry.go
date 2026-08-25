@@ -122,6 +122,50 @@ func (e *dirEntry) open() (fs.File, error) {
 	return &file{e, nil, 0, false}, nil
 }
 
+type linkEntry struct {
+	fs.DirEntry
+	target string
+	root   *tarfs
+}
+
+var _ entry = &linkEntry{}
+
+func (e *linkEntry) entries(op, path string) ([]fs.DirEntry, error) {
+	t, err := e.root.get(op, e.target)
+	if err != nil {
+		return nil, err
+	}
+	return t.entries(op, path)
+}
+
+func (e *linkEntry) open() (fs.File, error) {
+	t, err := e.root.get("open", e.target)
+	if err != nil {
+		return nil, newErrNotExist("open", e.target)
+	}
+	if re, ok := t.(*regEntry); ok {
+		r, err := re.reader()
+		if err != nil {
+			return nil, err
+		}
+
+		return &file{e, &readSeeker{&readCounter{r, 0}, re}, -1, false}, nil
+	}
+	return nil, newErrNotExist("open", e.target)
+}
+
+func (e *linkEntry) readdir(path string) ([]fs.DirEntry, error) {
+	return e.root.ReadDir(e.target)
+}
+
+func (e *linkEntry) readfile(path string) ([]byte, error) {
+	return e.root.ReadFile(e.target)
+}
+
+func (e *linkEntry) size() int64 {
+	return 0
+}
+
 type fakeDirFileInfo string
 
 var _ fs.FileInfo = fakeDirFileInfo("")

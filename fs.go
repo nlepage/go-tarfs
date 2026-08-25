@@ -66,6 +66,8 @@ func New(r io.Reader) (fs.FS, error) {
 
 		if h.FileInfo().IsDir() {
 			tfs.append(name, newDirEntry(de))
+		} else if h.Linkname != "" {
+			tfs.append(name, &linkEntry{de, h.Linkname, tfs})
 		} else {
 			tfs.append(name, &regEntry{de, name, ra, cr.Count() - blockSize})
 		}
@@ -177,6 +179,25 @@ func (tfs *tarfs) Sub(dir string) (fs.FS, error) {
 	}
 
 	return subfs, nil
+}
+
+func (tfs *tarfs) ReadLink(name string) (string, error) {
+	e, err := tfs.get("readlink", name)
+	if err != nil {
+		return "", err
+	}
+	if l, ok := e.(*linkEntry); ok {
+		return l.target, nil
+	}
+	return "", newErr("readlink", name, fs.ErrInvalid)
+}
+
+func (tfs *tarfs) Lstat(name string) (fs.FileInfo, error) {
+	e, err := tfs.get("lstat", name)
+	if err != nil {
+		return nil, err
+	}
+	return e.Info()
 }
 
 func (tfs *tarfs) get(op, path string) (entry, error) {
